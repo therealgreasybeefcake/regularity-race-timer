@@ -72,6 +72,12 @@
             </svg>
         );
 
+        const BarChart = ({ className }) => (
+            <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+            </svg>
+        );
+
         const Repeat = ({ className }) => (
             <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -112,6 +118,7 @@
             const [showTeamSettings, setShowTeamSettings] = useState(false);
             const [showDriverSwitch, setShowDriverSwitch] = useState(false);
             const [changeoverLapInfo, setChangeoverLapInfo] = useState(null);
+            const [showCharts, setShowCharts] = useState(false);
 
             // Load data from localStorage on mount
             useEffect(() => {
@@ -560,7 +567,94 @@
                 return sum / driver.laps.length;
             };
 
-            const generatePDF = () => {
+            // Helper function to generate chart image
+            const generateChartImage = (driver, chartType) => {
+                return new Promise((resolve) => {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = 800;
+                    canvas.height = 320;
+                    const ctx = canvas.getContext('2d');
+
+                    if (chartType === 'lapTimes') {
+                        new Chart(ctx, {
+                            type: 'line',
+                            data: {
+                                labels: driver.laps.map(lap => `${lap.number}`),
+                                datasets: [{
+                                    label: 'Lap Time',
+                                    data: driver.laps.map(lap => lap.time),
+                                    borderColor: '#3b82f6',
+                                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                                    tension: 0.1,
+                                    fill: true
+                                }, {
+                                    label: 'Target',
+                                    data: driver.laps.map(() => driver.targetTime),
+                                    borderColor: '#ef4444',
+                                    borderDash: [5, 5],
+                                    pointRadius: 0,
+                                    fill: false
+                                }]
+                            },
+                            options: {
+                                responsive: false,
+                                animation: { duration: 0 },
+                                plugins: {
+                                    legend: { labels: { font: { size: 12 } } }
+                                },
+                                scales: {
+                                    x: {
+                                        title: { display: true, text: 'Lap Number' },
+                                        ticks: { maxRotation: 0 }
+                                    },
+                                    y: {
+                                        title: { display: true, text: 'Time (s)' }
+                                    }
+                                }
+                            }
+                        });
+                    } else if (chartType === 'delta') {
+                        const nonChangeoverLaps = driver.laps.filter(lap => lap.lapType !== 'changeover');
+                        new Chart(ctx, {
+                            type: 'bar',
+                            data: {
+                                labels: nonChangeoverLaps.map(lap => `${lap.number}`),
+                                datasets: [{
+                                    label: 'Delta',
+                                    data: nonChangeoverLaps.map(lap => lap.delta),
+                                    backgroundColor: nonChangeoverLaps.map(lap => {
+                                        if (lap.lapType === 'bonus') return 'rgba(34, 197, 94, 0.6)';
+                                        if (lap.lapType === 'broken') return 'rgba(239, 68, 68, 0.6)';
+                                        return 'rgba(59, 130, 246, 0.6)';
+                                    })
+                                }]
+                            },
+                            options: {
+                                responsive: false,
+                                animation: { duration: 0 },
+                                plugins: {
+                                    legend: { labels: { font: { size: 12 } } }
+                                },
+                                scales: {
+                                    x: {
+                                        title: { display: true, text: 'Lap Number' },
+                                        ticks: { maxRotation: 0 }
+                                    },
+                                    y: {
+                                        title: { display: true, text: 'Delta (s)' }
+                                    }
+                                }
+                            }
+                        });
+                    }
+
+                    setTimeout(() => {
+                        resolve(canvas.toDataURL('image/png'));
+                    }, 100);
+                });
+            };
+
+            const generatePDF = async () => {
                 const { jsPDF } = window.jspdf;
                 const doc = new jsPDF();
 
@@ -628,7 +722,7 @@
                 });
 
                 // Individual Driver Details
-                team.drivers.forEach((driver, idx) => {
+                for (const driver of team.drivers) {
                     // Add page break for each driver
                     doc.addPage();
 
@@ -660,8 +754,27 @@
                             styles: { fontSize: 8 },
                             margin: { left: 20, right: 20 }
                         });
+
+                        // Add charts for this driver
+                        doc.addPage();
+
+                        // Lap Times Chart
+                        doc.setFontSize(14);
+                        doc.setTextColor(30, 64, 175);
+                        doc.text(`${driver.name} - Lap Times Over Time`, 20, 20);
+
+                        const lapTimesImg = await generateChartImage(driver, 'lapTimes');
+                        doc.addImage(lapTimesImg, 'PNG', 15, 30, 180, 72);
+
+                        // Delta Chart
+                        doc.setFontSize(14);
+                        doc.setTextColor(30, 64, 175);
+                        doc.text(`${driver.name} - Delta from Target`, 20, 115);
+
+                        const deltaImg = await generateChartImage(driver, 'delta');
+                        doc.addImage(deltaImg, 'PNG', 15, 125, 180, 72);
                     }
-                });
+                }
 
                 // Footer
                 const pageCount = doc.internal.getNumberOfPages();
@@ -887,7 +1000,7 @@
                 alert('Report downloaded! Open the HTML file in your browser and use Print > Save as PDF to create a PDF.');
             };
 
-            const generateDriverPDF = (teamIndex, driverIndex) => {
+            const generateDriverPDF = async (teamIndex, driverIndex) => {
                 const { jsPDF } = window.jspdf;
                 const doc = new jsPDF();
 
@@ -954,6 +1067,25 @@
                         headStyles: { fillColor: [30, 64, 175] },
                         styles: { fontSize: 9 }
                     });
+
+                    // Add charts page
+                    doc.addPage();
+
+                    // Add Lap Times Chart
+                    doc.setFontSize(16);
+                    doc.setTextColor(30, 64, 175);
+                    doc.text('Lap Times Over Time', 20, 20);
+
+                    const lapTimesImg = await generateChartImage(driver, 'lapTimes');
+                    doc.addImage(lapTimesImg, 'PNG', 15, 30, 180, 72);
+
+                    // Add Delta Chart
+                    doc.setFontSize(16);
+                    doc.setTextColor(30, 64, 175);
+                    doc.text('Delta from Target', 20, 115);
+
+                    const deltaImg = await generateChartImage(driver, 'delta');
+                    doc.addImage(deltaImg, 'PNG', 15, 125, 180, 72);
                 } else {
                     doc.setFontSize(10);
                     doc.setTextColor(100, 100, 100);
@@ -1233,6 +1365,14 @@
                                 >
                                     <Users className="w-5 h-5" />
                                     <span>Team Score</span>
+                                </button>
+                                <button
+                                    onClick={() => setShowCharts(!showCharts)}
+                                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-lg font-semibold transition-colors flex items-center gap-2 text-white"
+                                    title="View Charts"
+                                >
+                                    <BarChart className="w-5 h-5" />
+                                    <span>Charts</span>
                                 </button>
                                 <button
                                     onClick={generatePDF}
@@ -1711,9 +1851,210 @@
                             </div>
                         </div>
                     )}
+
+                    {/* Charts Modal */}
+                    {showCharts && (
+                        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+                            <div className={`${cardBgClass} rounded-lg p-6 max-w-6xl w-full shadow-2xl max-h-[90vh] overflow-y-auto`}>
+                                <div className="flex justify-between items-center mb-6">
+                                    <h2 className="text-2xl font-bold">Performance Charts - {driver.name}</h2>
+                                    <button
+                                        onClick={() => setShowCharts(false)}
+                                        className="text-gray-400 hover:text-gray-600 transition-colors"
+                                    >
+                                        <X className="w-6 h-6" />
+                                    </button>
+                                </div>
+
+                                <div className="space-y-6">
+                                    {/* Lap Times Chart */}
+                                    <div className={`${cardBgSecondaryClass} rounded-lg p-5`}>
+                                        <h3 className="text-lg font-bold mb-4">Lap Times Over Time</h3>
+                                        <LapTimesChart driver={driver} isDarkMode={isDarkMode} />
+                                    </div>
+
+                                    {/* Delta Chart */}
+                                    <div className={`${cardBgSecondaryClass} rounded-lg p-5`}>
+                                        <h3 className="text-lg font-bold mb-4">Delta from Target</h3>
+                                        <DeltaChart driver={driver} isDarkMode={isDarkMode} />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </div>
             );
         }
+
+        // Chart Components
+        const LapTimesChart = ({ driver, isDarkMode }) => {
+            const canvasRef = useRef(null);
+            const chartRef = useRef(null);
+
+            useEffect(() => {
+                if (!canvasRef.current || driver.laps.length === 0) return;
+
+                // Destroy existing chart
+                if (chartRef.current) {
+                    chartRef.current.destroy();
+                }
+
+                const ctx = canvasRef.current.getContext('2d');
+                const textColor = isDarkMode ? '#e5e7eb' : '#1f2937';
+                const gridColor = isDarkMode ? '#374151' : '#d1d5db';
+
+                chartRef.current = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: driver.laps.map(lap => `Lap ${lap.number}`),
+                        datasets: [{
+                            label: 'Lap Time (s)',
+                            data: driver.laps.map(lap => lap.time),
+                            borderColor: '#3b82f6',
+                            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                            tension: 0.1,
+                            fill: true
+                        }, {
+                            label: 'Target Time (s)',
+                            data: driver.laps.map(() => driver.targetTime),
+                            borderColor: '#ef4444',
+                            borderDash: [5, 5],
+                            pointRadius: 0,
+                            fill: false
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: true,
+                        aspectRatio: 2.5,
+                        plugins: {
+                            legend: {
+                                labels: {
+                                    color: textColor
+                                }
+                            }
+                        },
+                        scales: {
+                            x: {
+                                ticks: {
+                                    color: textColor,
+                                    maxRotation: 45,
+                                    minRotation: 45
+                                },
+                                grid: { color: gridColor }
+                            },
+                            y: {
+                                ticks: { color: textColor },
+                                grid: { color: gridColor },
+                                title: {
+                                    display: true,
+                                    text: 'Time (seconds)',
+                                    color: textColor
+                                }
+                            }
+                        }
+                    }
+                });
+
+                return () => {
+                    if (chartRef.current) {
+                        chartRef.current.destroy();
+                    }
+                };
+            }, [driver, isDarkMode]);
+
+            if (driver.laps.length === 0) {
+                return <div className="text-center text-gray-400 py-8">No lap data available</div>;
+            }
+
+            return <canvas ref={canvasRef}></canvas>;
+        };
+
+        const DeltaChart = ({ driver, isDarkMode }) => {
+            const canvasRef = useRef(null);
+            const chartRef = useRef(null);
+
+            useEffect(() => {
+                if (!canvasRef.current || driver.laps.length === 0) return;
+
+                // Destroy existing chart
+                if (chartRef.current) {
+                    chartRef.current.destroy();
+                }
+
+                const ctx = canvasRef.current.getContext('2d');
+                const textColor = isDarkMode ? '#e5e7eb' : '#1f2937';
+                const gridColor = isDarkMode ? '#374151' : '#d1d5db';
+
+                // Filter out changeover laps for delta chart
+                const nonChangeoverLaps = driver.laps.filter(lap => lap.lapType !== 'changeover');
+
+                chartRef.current = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: nonChangeoverLaps.map(lap => `Lap ${lap.number}`),
+                        datasets: [{
+                            label: 'Delta from Target (s)',
+                            data: nonChangeoverLaps.map(lap => lap.delta),
+                            backgroundColor: nonChangeoverLaps.map(lap => {
+                                if (lap.lapType === 'bonus') return 'rgba(34, 197, 94, 0.6)';
+                                if (lap.lapType === 'broken') return 'rgba(239, 68, 68, 0.6)';
+                                return 'rgba(59, 130, 246, 0.6)';
+                            }),
+                            borderColor: nonChangeoverLaps.map(lap => {
+                                if (lap.lapType === 'bonus') return '#22c55e';
+                                if (lap.lapType === 'broken') return '#ef4444';
+                                return '#3b82f6';
+                            }),
+                            borderWidth: 2
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: true,
+                        aspectRatio: 2.5,
+                        plugins: {
+                            legend: {
+                                labels: {
+                                    color: textColor
+                                }
+                            }
+                        },
+                        scales: {
+                            x: {
+                                ticks: {
+                                    color: textColor,
+                                    maxRotation: 45,
+                                    minRotation: 45
+                                },
+                                grid: { color: gridColor }
+                            },
+                            y: {
+                                ticks: { color: textColor },
+                                grid: { color: gridColor },
+                                title: {
+                                    display: true,
+                                    text: 'Delta (seconds)',
+                                    color: textColor
+                                }
+                            }
+                        }
+                    }
+                });
+
+                return () => {
+                    if (chartRef.current) {
+                        chartRef.current.destroy();
+                    }
+                };
+            }, [driver, isDarkMode]);
+
+            if (driver.laps.length === 0) {
+                return <div className="text-center text-gray-400 py-8">No lap data available</div>;
+            }
+
+            return <canvas ref={canvasRef}></canvas>;
+        };
 
         const root = ReactDOM.createRoot(document.getElementById('root'));
         root.render(<BlindFreddyRaceTimer />);
