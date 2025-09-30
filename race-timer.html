@@ -579,6 +579,22 @@
                 return sum / driver.laps.length;
             };
 
+            // Helper function to calculate linear regression trend line
+            const calculateTrendLine = (data) => {
+                const n = data.length;
+                if (n === 0) return [];
+
+                const sumX = data.reduce((sum, _, i) => sum + i, 0);
+                const sumY = data.reduce((sum, val) => sum + val, 0);
+                const sumXY = data.reduce((sum, val, i) => sum + (i * val), 0);
+                const sumX2 = data.reduce((sum, _, i) => sum + (i * i), 0);
+
+                const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+                const intercept = (sumY - slope * sumX) / n;
+
+                return data.map((_, i) => slope * i + intercept);
+            };
+
             // Helper function to generate chart image
             const generateChartImage = (driver, chartType) => {
                 return new Promise((resolve) => {
@@ -588,13 +604,16 @@
                     const ctx = canvas.getContext('2d');
 
                     if (chartType === 'lapTimes') {
+                        const lapTimes = driver.laps.map(lap => lap.time);
+                        const trendLine = calculateTrendLine(lapTimes);
+
                         new Chart(ctx, {
                             type: 'line',
                             data: {
                                 labels: driver.laps.map(lap => `${lap.number}`),
                                 datasets: [{
                                     label: 'Lap Time',
-                                    data: driver.laps.map(lap => lap.time),
+                                    data: lapTimes,
                                     borderColor: '#3b82f6',
                                     backgroundColor: 'rgba(59, 130, 246, 0.1)',
                                     tension: 0.1,
@@ -604,6 +623,14 @@
                                     data: driver.laps.map(() => driver.targetTime),
                                     borderColor: '#ef4444',
                                     borderDash: [5, 5],
+                                    pointRadius: 0,
+                                    fill: false
+                                }, {
+                                    label: 'Trend',
+                                    data: trendLine,
+                                    borderColor: '#22c55e',
+                                    borderWidth: 2,
+                                    borderDash: [10, 5],
                                     pointRadius: 0,
                                     fill: false
                                 }]
@@ -627,18 +654,32 @@
                         });
                     } else if (chartType === 'delta') {
                         const nonChangeoverLaps = driver.laps.filter(lap => lap.lapType !== 'changeover');
+                        const deltas = nonChangeoverLaps.map(lap => lap.delta);
+                        const trendLine = calculateTrendLine(deltas);
+
                         new Chart(ctx, {
                             type: 'bar',
                             data: {
                                 labels: nonChangeoverLaps.map(lap => `${lap.number}`),
                                 datasets: [{
                                     label: 'Delta',
-                                    data: nonChangeoverLaps.map(lap => lap.delta),
+                                    data: deltas,
                                     backgroundColor: nonChangeoverLaps.map(lap => {
                                         if (lap.lapType === 'bonus') return 'rgba(34, 197, 94, 0.6)';
                                         if (lap.lapType === 'broken') return 'rgba(239, 68, 68, 0.6)';
                                         return 'rgba(59, 130, 246, 0.6)';
-                                    })
+                                    }),
+                                    order: 2
+                                }, {
+                                    label: 'Trend',
+                                    data: trendLine,
+                                    type: 'line',
+                                    borderColor: '#22c55e',
+                                    borderWidth: 2,
+                                    borderDash: [10, 5],
+                                    pointRadius: 0,
+                                    fill: false,
+                                    order: 1
                                 }]
                             },
                             options: {
@@ -1964,13 +2005,24 @@
                 const textColor = isDarkMode ? '#e5e7eb' : '#1f2937';
                 const gridColor = isDarkMode ? '#374151' : '#d1d5db';
 
+                // Calculate trend line
+                const lapTimes = driver.laps.map(lap => lap.time);
+                const n = lapTimes.length;
+                const sumX = lapTimes.reduce((sum, _, i) => sum + i, 0);
+                const sumY = lapTimes.reduce((sum, val) => sum + val, 0);
+                const sumXY = lapTimes.reduce((sum, val, i) => sum + (i * val), 0);
+                const sumX2 = lapTimes.reduce((sum, _, i) => sum + (i * i), 0);
+                const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+                const intercept = (sumY - slope * sumX) / n;
+                const trendLine = lapTimes.map((_, i) => slope * i + intercept);
+
                 chartRef.current = new Chart(ctx, {
                     type: 'line',
                     data: {
                         labels: driver.laps.map(lap => `Lap ${lap.number}`),
                         datasets: [{
                             label: 'Lap Time (s)',
-                            data: driver.laps.map(lap => lap.time),
+                            data: lapTimes,
                             borderColor: '#3b82f6',
                             backgroundColor: 'rgba(59, 130, 246, 0.1)',
                             tension: 0.1,
@@ -1980,6 +2032,14 @@
                             data: driver.laps.map(() => driver.targetTime),
                             borderColor: '#ef4444',
                             borderDash: [5, 5],
+                            pointRadius: 0,
+                            fill: false
+                        }, {
+                            label: 'Trend',
+                            data: trendLine,
+                            borderColor: '#22c55e',
+                            borderWidth: 2,
+                            borderDash: [10, 5],
                             pointRadius: 0,
                             fill: false
                         }]
@@ -2049,6 +2109,17 @@
 
                 // Filter out changeover laps for delta chart
                 const nonChangeoverLaps = driver.laps.filter(lap => lap.lapType !== 'changeover');
+                const deltas = nonChangeoverLaps.map(lap => lap.delta);
+
+                // Calculate trend line
+                const n = deltas.length;
+                const sumX = deltas.reduce((sum, _, i) => sum + i, 0);
+                const sumY = deltas.reduce((sum, val) => sum + val, 0);
+                const sumXY = deltas.reduce((sum, val, i) => sum + (i * val), 0);
+                const sumX2 = deltas.reduce((sum, _, i) => sum + (i * i), 0);
+                const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+                const intercept = (sumY - slope * sumX) / n;
+                const trendLine = deltas.map((_, i) => slope * i + intercept);
 
                 chartRef.current = new Chart(ctx, {
                     type: 'bar',
@@ -2056,7 +2127,7 @@
                         labels: nonChangeoverLaps.map(lap => `Lap ${lap.number}`),
                         datasets: [{
                             label: 'Delta from Target (s)',
-                            data: nonChangeoverLaps.map(lap => lap.delta),
+                            data: deltas,
                             backgroundColor: nonChangeoverLaps.map(lap => {
                                 if (lap.lapType === 'bonus') return 'rgba(34, 197, 94, 0.6)';
                                 if (lap.lapType === 'broken') return 'rgba(239, 68, 68, 0.6)';
@@ -2067,7 +2138,18 @@
                                 if (lap.lapType === 'broken') return '#ef4444';
                                 return '#3b82f6';
                             }),
-                            borderWidth: 2
+                            borderWidth: 2,
+                            order: 2
+                        }, {
+                            label: 'Trend',
+                            data: trendLine,
+                            type: 'line',
+                            borderColor: '#22c55e',
+                            borderWidth: 2,
+                            borderDash: [10, 5],
+                            pointRadius: 0,
+                            fill: false,
+                            order: 1
                         }]
                     },
                     options: {
