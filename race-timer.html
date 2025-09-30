@@ -1,0 +1,1689 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blind Freddy Race Timer</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+</head>
+<body>
+    <div id="root"></div>
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        // Lucide React Icons as inline SVG components
+        const Flag = ({ className }) => (
+            <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9" />
+            </svg>
+        );
+
+        const Plus = ({ className }) => (
+            <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+        );
+
+        const Trash2 = ({ className }) => (
+            <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+        );
+
+        const Download = ({ className }) => (
+            <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+        );
+
+        const Upload = ({ className }) => (
+            <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+            </svg>
+        );
+
+        const RefreshCw = ({ className }) => (
+            <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+        );
+
+        const FileText = ({ className }) => (
+            <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+        );
+
+        const X = ({ className }) => (
+            <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+        );
+
+        const Users = ({ className }) => (
+            <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+            </svg>
+        );
+
+        const Repeat = ({ className }) => (
+            <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+        );
+
+        const Settings = ({ className }) => (
+            <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+        );
+
+        function BlindFreddyRaceTimer() {
+            // Team-based data structure
+            const [teams, setTeams] = useState([
+                {
+                    id: 1,
+                    name: 'Team 1',
+                    drivers: [
+                        { id: 1, name: 'Harry', targetTime: 105, laps: [], penaltyLaps: 0 },
+                        { id: 2, name: 'Dave', targetTime: 105, laps: [], penaltyLaps: 0 },
+                        { id: 3, name: 'Tom', targetTime: 105, laps: [], penaltyLaps: 0 },
+                        { id: 4, name: 'Neil', targetTime: 105, laps: [], penaltyLaps: 0 }
+                    ]
+                }
+            ]);
+            const [activeTeam, setActiveTeam] = useState(0);
+            const [activeDriver, setActiveDriver] = useState(0);
+            const [lapInput, setLapInput] = useState('');
+            const [elapsedTime, setElapsedTime] = useState(0);
+            const [isRunning, setIsRunning] = useState(false);
+            const startTimeRef = useRef(null);
+            const intervalRef = useRef(null);
+            const lastLapTimeRef = useRef(null);
+            const [isDarkMode, setIsDarkMode] = useState(true);
+            const [showTeamScoring, setShowTeamScoring] = useState(false);
+            const [showTeamSettings, setShowTeamSettings] = useState(false);
+            const [showDriverSwitch, setShowDriverSwitch] = useState(false);
+            const [changeoverLapInfo, setChangeoverLapInfo] = useState(null);
+
+            // Load data from localStorage on mount
+            useEffect(() => {
+                const savedTeams = localStorage.getItem('blindFreddyRaceTeams');
+                const savedActiveTeam = localStorage.getItem('blindFreddyActiveTeam');
+                const savedActiveDriver = localStorage.getItem('blindFreddyActiveDriver');
+                const savedTheme = localStorage.getItem('raceTimerTheme');
+
+                if (savedTeams) {
+                    setTeams(JSON.parse(savedTeams));
+                }
+                if (savedActiveTeam !== null) {
+                    setActiveTeam(JSON.parse(savedActiveTeam));
+                }
+                if (savedActiveDriver !== null) {
+                    setActiveDriver(JSON.parse(savedActiveDriver));
+                }
+                if (savedTheme !== null) {
+                    setIsDarkMode(JSON.parse(savedTheme));
+                }
+            }, []);
+
+            // Save data to localStorage whenever it changes
+            useEffect(() => {
+                localStorage.setItem('blindFreddyRaceTeams', JSON.stringify(teams));
+                localStorage.setItem('blindFreddyActiveTeam', JSON.stringify(activeTeam));
+                localStorage.setItem('blindFreddyActiveDriver', JSON.stringify(activeDriver));
+            }, [teams, activeTeam, activeDriver]);
+
+            // Save theme to localStorage
+            useEffect(() => {
+                localStorage.setItem('raceTimerTheme', JSON.stringify(isDarkMode));
+            }, [isDarkMode]);
+
+            // Global keyboard handler for Enter key
+            useEffect(() => {
+                const handleGlobalKeyPress = (e) => {
+                    if (e.key === 'Enter' || e.key === 'Return') {
+                        e.preventDefault();
+                        addLap();
+                    }
+                };
+
+                window.addEventListener('keydown', handleGlobalKeyPress);
+                return () => window.removeEventListener('keydown', handleGlobalKeyPress);
+            }, [isRunning, elapsedTime, lapInput, activeDriver, activeTeam, teams]);
+
+            // Stopwatch timer effect
+            useEffect(() => {
+                if (isRunning) {
+                    intervalRef.current = setInterval(() => {
+                        const now = Date.now();
+                        setElapsedTime(Math.floor((now - startTimeRef.current) / 10) / 100);
+                    }, 10);
+                } else {
+                    if (intervalRef.current) {
+                        clearInterval(intervalRef.current);
+                    }
+                }
+                return () => {
+                    if (intervalRef.current) {
+                        clearInterval(intervalRef.current);
+                    }
+                };
+            }, [isRunning]);
+
+            const startStopwatch = () => {
+                startTimeRef.current = Date.now();
+                setElapsedTime(0);
+                setIsRunning(true);
+            };
+
+            const stopStopwatch = () => {
+                setIsRunning(false);
+            };
+
+            const resetStopwatch = () => {
+                setIsRunning(false);
+                setElapsedTime(0);
+            };
+
+            const calculateLapType = (delta, isChangeover = false) => {
+                // Changeover laps are marked separately
+                if (isChangeover) {
+                    return 'changeover';
+                }
+
+                // delta is lapTime - targetTime
+                // Bonus Lap: within +0.99 seconds of nominated time (0 to +0.99)
+                // Base Lap: slower than +0.99 seconds
+                // Broken Lap: any amount faster (negative delta)
+
+                if (delta < 0) {
+                    return 'broken'; // Too fast = BROKEN LAP
+                } else if (delta >= 0 && delta <= 0.99) {
+                    return 'bonus'; // Within +0.99s = BONUS LAP (counts as 2 laps: 1 base + 1 bonus)
+                } else {
+                    return 'base'; // Slower than +0.99s = BASE LAP (counts as 1 lap)
+                }
+            };
+
+            const calculateLapValue = (lapType) => {
+                // Changeover lap = 1
+                // Bonus lap = 2 (1 base + 1 bonus)
+                // Base lap = 1
+                // Broken lap = 0 (wasted lap, actually subtracts)
+                if (lapType === 'changeover') return 1;
+                if (lapType === 'bonus') return 2;
+                if (lapType === 'base') return 1;
+                if (lapType === 'broken') return 0;
+                return 1;
+            };
+
+            const addLap = () => {
+                const updatedTeams = [...teams];
+                const team = updatedTeams[activeTeam];
+                const driver = team.drivers[activeDriver];
+
+                // If manual input exists, use it
+                if (lapInput) {
+                    const lapTime = parseFloat(lapInput);
+                    if (isNaN(lapTime) || lapTime <= 0) return;
+
+                    // Check for changeover (3+ minutes since last lap)
+                    const isChangeover = lastLapTimeRef.current &&
+                                        (Date.now() - lastLapTimeRef.current) > 180000;
+
+                    const delta = lapTime - driver.targetTime;
+                    const lapType = calculateLapType(delta, isChangeover);
+                    driver.laps.push({
+                        number: driver.laps.length + 1,
+                        time: lapTime,
+                        delta: delta,
+                        lapType: lapType,
+                        lapValue: calculateLapValue(lapType),
+                        timestamp: Date.now()
+                    });
+                    setTeams(updatedTeams);
+                    setLapInput('');
+                    lastLapTimeRef.current = Date.now();
+                    return;
+                }
+
+                // If no manual input, handle stopwatch lap behavior
+                if (!isRunning) {
+                    // First press: start stopwatch
+                    startStopwatch();
+                    lastLapTimeRef.current = Date.now();
+                } else {
+                    // Subsequent press: record lap and restart
+                    const lapTime = elapsedTime;
+
+                    // Check for changeover (3+ minutes since last lap)
+                    const isChangeover = lastLapTimeRef.current &&
+                                        (Date.now() - lastLapTimeRef.current) > 180000;
+
+                    const delta = lapTime - driver.targetTime;
+                    const lapType = calculateLapType(delta, isChangeover);
+                    driver.laps.push({
+                        number: driver.laps.length + 1,
+                        time: lapTime,
+                        delta: delta,
+                        lapType: lapType,
+                        lapValue: calculateLapValue(lapType),
+                        timestamp: Date.now()
+                    });
+                    setTeams(updatedTeams);
+                    lastLapTimeRef.current = Date.now();
+
+                    // Restart stopwatch for next lap
+                    startStopwatch();
+                }
+            };
+
+            const removeLap = (teamIndex, driverIndex, lapIndex) => {
+                const updatedTeams = [...teams];
+                updatedTeams[teamIndex].drivers[driverIndex].laps.splice(lapIndex, 1);
+                updatedTeams[teamIndex].drivers[driverIndex].laps.forEach((lap, idx) => {
+                    lap.number = idx + 1;
+                });
+                setTeams(updatedTeams);
+            };
+
+            const clearDriverLaps = (teamIndex, driverIndex) => {
+                if (confirm('Are you sure you want to clear all laps for this driver? This cannot be undone.')) {
+                    const updatedTeams = [...teams];
+                    updatedTeams[teamIndex].drivers[driverIndex].laps = [];
+                    setTeams(updatedTeams);
+                }
+            };
+
+            const updateDriverName = (teamIndex, driverIndex, name) => {
+                const updatedTeams = [...teams];
+                updatedTeams[teamIndex].drivers[driverIndex].name = name;
+                setTeams(updatedTeams);
+            };
+
+            const updateTargetTime = (teamIndex, driverIndex, time) => {
+                const updatedTeams = [...teams];
+                const newTarget = parseFloat(time);
+                const driver = updatedTeams[teamIndex].drivers[driverIndex];
+                driver.targetTime = newTarget;
+                driver.laps = driver.laps.map(lap => {
+                    if (lap.lapType === 'changeover') return lap; // Don't recalculate changeovers
+                    const delta = lap.time - newTarget;
+                    const lapType = calculateLapType(delta);
+                    return {
+                        ...lap,
+                        delta: delta,
+                        lapType: lapType,
+                        lapValue: calculateLapValue(lapType)
+                    };
+                });
+                setTeams(updatedTeams);
+            };
+
+            const updatePenaltyLaps = (teamIndex, driverIndex, penalty) => {
+                const updatedTeams = [...teams];
+                updatedTeams[teamIndex].drivers[driverIndex].penaltyLaps = parseInt(penalty) || 0;
+                setTeams(updatedTeams);
+            };
+
+            const toggleChangeoverLap = (teamIndex, driverIndex, lapIndex) => {
+                const updatedTeams = [...teams];
+                const lap = updatedTeams[teamIndex].drivers[driverIndex].laps[lapIndex];
+
+                // Toggle between changeover and the original lap type
+                if (lap.lapType === 'changeover') {
+                    // Revert to original type based on delta
+                    const delta = lap.delta;
+                    const newLapType = calculateLapType(delta, false);
+                    lap.lapType = newLapType;
+                    lap.lapValue = calculateLapValue(newLapType);
+                    setTeams(updatedTeams);
+                } else {
+                    // Show driver switch modal
+                    setChangeoverLapInfo({ teamIndex, driverIndex, lapIndex });
+                    setShowDriverSwitch(true);
+                }
+            };
+
+            const confirmDriverSwitch = (newDriverIndex) => {
+                if (changeoverLapInfo) {
+                    const { teamIndex, driverIndex, lapIndex } = changeoverLapInfo;
+                    const updatedTeams = [...teams];
+                    const lap = updatedTeams[teamIndex].drivers[driverIndex].laps[lapIndex];
+
+                    lap.lapType = 'changeover';
+                    lap.lapValue = 1;
+                    setTeams(updatedTeams);
+                    setActiveDriver(newDriverIndex);
+                    setShowDriverSwitch(false);
+                    setChangeoverLapInfo(null);
+                }
+            };
+
+            const addDriver = (teamIndex) => {
+                const updatedTeams = [...teams];
+                const team = updatedTeams[teamIndex];
+                const newDriverId = Math.max(...team.drivers.map(d => d.id), 0) + 1;
+                const driverLetter = String.fromCharCode(65 + team.drivers.length); // A, B, C, etc.
+
+                team.drivers.push({
+                    id: newDriverId,
+                    name: `Driver ${driverLetter}`,
+                    targetTime: 102,
+                    laps: [],
+                    penaltyLaps: 0
+                });
+
+                setTeams(updatedTeams);
+            };
+
+            const removeDriver = (teamIndex, driverIndex) => {
+                const updatedTeams = [...teams];
+                const team = updatedTeams[teamIndex];
+
+                if (team.drivers.length <= 1) {
+                    alert('Cannot remove the last driver from a team.');
+                    return;
+                }
+
+                if (team.drivers[driverIndex].laps.length > 0) {
+                    if (!confirm('This driver has recorded laps. Are you sure you want to remove them?')) {
+                        return;
+                    }
+                }
+
+                team.drivers.splice(driverIndex, 1);
+
+                // Adjust active driver if necessary
+                if (activeDriver >= team.drivers.length) {
+                    setActiveDriver(team.drivers.length - 1);
+                }
+
+                setTeams(updatedTeams);
+            };
+
+            const addTeam = () => {
+                const newTeamId = Math.max(...teams.map(t => t.id), 0) + 1;
+                const newTeam = {
+                    id: newTeamId,
+                    name: `Team ${newTeamId}`,
+                    drivers: [
+                        { id: 1, name: 'Driver A', targetTime: 102, laps: [], penaltyLaps: 0 }
+                    ]
+                };
+                setTeams([...teams, newTeam]);
+                setActiveTeam(teams.length);
+                setActiveDriver(0);
+            };
+
+            const removeTeam = (teamIndex) => {
+                if (teams.length <= 1) {
+                    alert('Cannot remove the last team.');
+                    return;
+                }
+
+                const team = teams[teamIndex];
+                const hasLaps = team.drivers.some(d => d.laps.length > 0);
+
+                if (hasLaps) {
+                    if (!confirm('This team has recorded laps. Are you sure you want to remove it?')) {
+                        return;
+                    }
+                }
+
+                const updatedTeams = [...teams];
+                updatedTeams.splice(teamIndex, 1);
+                setTeams(updatedTeams);
+
+                // Adjust active team if necessary
+                if (activeTeam >= updatedTeams.length) {
+                    setActiveTeam(updatedTeams.length - 1);
+                }
+                setActiveDriver(0);
+            };
+
+            const updateTeamName = (teamIndex, name) => {
+                const updatedTeams = [...teams];
+                updatedTeams[teamIndex].name = name;
+                setTeams(updatedTeams);
+            };
+
+            // WINTON SCORING CALCULATIONS
+
+            // Get driver's base laps (excludes broken)
+            const getDriverBaseLaps = (driver) => {
+                return driver.laps.filter(lap => lap.lapType !== 'broken').length;
+            };
+
+            // Get driver's changeover laps
+            const getDriverChangeoverLaps = (driver) => {
+                return driver.laps.filter(lap => lap.lapType === 'changeover').length;
+            };
+
+            // Get driver's bonus laps
+            const getDriverBonusLaps = (driver) => {
+                return driver.laps.filter(lap => lap.lapType === 'bonus').length;
+            };
+
+            // Get driver's broken laps
+            const getDriverBrokenLaps = (driver) => {
+                return driver.laps.filter(lap => lap.lapType === 'broken').length;
+            };
+
+            // Get driver's achieved laps (Base + Bonus + Changeover - Broken - Penalty)
+            const getDriverAchievedLaps = (driver) => {
+                const baseLaps = getDriverBaseLaps(driver);
+                const bonusLaps = getDriverBonusLaps(driver);
+                const changeoverLaps = getDriverChangeoverLaps(driver);
+                const brokenLaps = getDriverBrokenLaps(driver);
+                return baseLaps + bonusLaps + changeoverLaps - brokenLaps - driver.penaltyLaps;
+            };
+
+            // Get team's total base and changeover laps
+            const getTeamBaseAndChangeoverLaps = (team) => {
+                return team.drivers.reduce((total, driver) => {
+                    return total + getDriverBaseLaps(driver) + getDriverChangeoverLaps(driver);
+                }, 0);
+            };
+
+            // Calculate driver's goal laps based on Winton formula
+            const calculateDriverGoalLaps = (driver, team) => {
+                const teamTotal = getTeamBaseAndChangeoverLaps(team);
+                if (teamTotal === 0) return 0;
+
+                const driverTotal = getDriverBaseLaps(driver) + getDriverChangeoverLaps(driver);
+                const percentage = driverTotal / teamTotal;
+
+                // Formula: (percentage * 36000) / driver's target time * 2 (to consider bonus laps)
+                const theoreticalMax = (percentage * 36000) / driver.targetTime;
+                return theoreticalMax * 2; // Doubled to consider bonus laps
+            };
+
+            // Get team's total goal laps
+            const getTeamGoalLaps = (team) => {
+                return team.drivers.reduce((total, driver) => {
+                    return total + calculateDriverGoalLaps(driver, team);
+                }, 0);
+            };
+
+            // Get team's total achieved laps
+            const getTeamAchievedLaps = (team) => {
+                return team.drivers.reduce((total, driver) => {
+                    return total + getDriverAchievedLaps(driver);
+                }, 0);
+            };
+
+            // Calculate team's percentage factor
+            const getTeamPercentageFactor = (team) => {
+                const goalLaps = getTeamGoalLaps(team);
+                if (goalLaps === 0) return 0;
+                const achievedLaps = getTeamAchievedLaps(team);
+                return (achievedLaps / goalLaps * 100).toFixed(4);
+            };
+
+            const getCurrentStatus = (driver) => {
+                if (driver.laps.length === 0) return { signal: 'WAITING', color: 'bg-gray-500', message: 'No laps yet' };
+
+                const lastLap = driver.laps[driver.laps.length - 1];
+                const delta = lastLap.delta;
+                const lapType = lastLap.lapType;
+
+                if (lapType === 'changeover') {
+                    return { signal: 'CHANGEOVER', color: 'bg-purple-500', message: 'Driver change' };
+                } else if (lapType === 'bonus') {
+                    return { signal: 'BONUS LAP!', color: 'bg-green-500', message: `+2 Laps (${delta > 0 ? '+' : ''}${delta.toFixed(2)}s)` };
+                } else if (lapType === 'base') {
+                    return { signal: 'BASE LAP', color: 'bg-blue-500', message: `+1 Lap (${delta > 0 ? '+' : ''}${delta.toFixed(2)}s)` };
+                } else {
+                    return { signal: 'BROKEN!', color: 'bg-red-500', message: `Wasted lap! (${delta.toFixed(2)}s)` };
+                }
+            };
+
+            const getAverageDelta = (driver) => {
+                if (driver.laps.length === 0) return 0;
+                const sum = driver.laps.reduce((acc, lap) => acc + lap.delta, 0);
+                return sum / driver.laps.length;
+            };
+
+            const generatePDF = () => {
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF();
+
+                const currentTeam = teams[activeTeam];
+                const goalLaps = getTeamGoalLaps(currentTeam);
+                const achievedLaps = getTeamAchievedLaps(currentTeam);
+                const percentageFactor = getTeamPercentageFactor(currentTeam);
+
+                // Title
+                doc.setFontSize(20);
+                doc.setTextColor(30, 64, 175);
+                doc.text('Blind Freddy Race Report', 105, 20, { align: 'center' });
+
+                doc.setFontSize(10);
+                doc.setTextColor(0, 0, 0);
+                doc.text(`Generated: ${new Date().toLocaleString()}`, 105, 28, { align: 'center' });
+
+                // Team Summary
+                doc.setFontSize(16);
+                doc.setTextColor(30, 64, 175);
+                doc.text(currentTeam.name, 20, 40);
+
+                doc.setFontSize(12);
+                doc.setTextColor(0, 0, 0);
+                doc.text(`Goal Laps: ${goalLaps.toFixed(2)}`, 20, 50);
+                doc.text(`Achieved Laps: ${achievedLaps}`, 20, 57);
+                doc.text(`Percentage Factor: ${percentageFactor}%`, 20, 64);
+
+                // Driver Summary Table
+                const driverData = currentTeam.drivers.map(d => [
+                    d.name,
+                    `${d.targetTime}s`,
+                    getDriverBaseLaps(d),
+                    getDriverBonusLaps(d),
+                    getDriverChangeoverLaps(d),
+                    getDriverBrokenLaps(d),
+                    d.penaltyLaps,
+                    getDriverAchievedLaps(d),
+                    calculateDriverGoalLaps(d, currentTeam).toFixed(2)
+                ]);
+
+                // Add totals row
+                driverData.push([
+                    'TOTAL',
+                    '',
+                    currentTeam.drivers.reduce((sum, d) => sum + getDriverBaseLaps(d), 0),
+                    currentTeam.drivers.reduce((sum, d) => sum + getDriverBonusLaps(d), 0),
+                    currentTeam.drivers.reduce((sum, d) => sum + getDriverChangeoverLaps(d), 0),
+                    currentTeam.drivers.reduce((sum, d) => sum + getDriverBrokenLaps(d), 0),
+                    currentTeam.drivers.reduce((sum, d) => sum + d.penaltyLaps, 0),
+                    achievedLaps,
+                    goalLaps.toFixed(2)
+                ]);
+
+                doc.autoTable({
+                    startY: 75,
+                    head: [['Driver', 'Target', 'Base', 'Bonus', 'C/O', 'Broken', 'Penalty', 'Achieved', 'Goal']],
+                    body: driverData,
+                    theme: 'striped',
+                    headStyles: { fillColor: [30, 64, 175] },
+                    styles: { fontSize: 9 }
+                });
+
+                // Individual Driver Details
+                let yPosition = doc.lastAutoTable.finalY + 15;
+
+                currentTeam.drivers.forEach((driver, idx) => {
+                    if (yPosition > 250) {
+                        doc.addPage();
+                        yPosition = 20;
+                    }
+
+                    doc.setFontSize(14);
+                    doc.setTextColor(30, 64, 175);
+                    doc.text(`${driver.name} - Detailed Lap Times`, 20, yPosition);
+                    yPosition += 7;
+
+                    const lapData = driver.laps.map(lap => [
+                        lap.number,
+                        `${lap.time.toFixed(2)}s`,
+                        `${driver.targetTime.toFixed(2)}s`,
+                        lap.lapType === 'changeover' ? '*****' : `${lap.delta > 0 ? '+' : ''}${lap.delta.toFixed(2)}s`,
+                        lap.lapType === 'bonus' ? 'Bonus (+2)' :
+                        lap.lapType === 'broken' ? 'Broken (0)' :
+                        lap.lapType === 'changeover' ? 'Changeover (+1)' : 'Base (+1)'
+                    ]);
+
+                    if (lapData.length === 0) {
+                        doc.setFontSize(10);
+                        doc.setTextColor(100, 100, 100);
+                        doc.text('No laps recorded', 20, yPosition + 5);
+                        yPosition += 15;
+                    } else {
+                        doc.autoTable({
+                            startY: yPosition,
+                            head: [['Lap #', 'Time', 'Target', 'Delta', 'Type']],
+                            body: lapData,
+                            theme: 'striped',
+                            headStyles: { fillColor: [30, 64, 175] },
+                            styles: { fontSize: 8 },
+                            margin: { left: 20, right: 20 }
+                        });
+                        yPosition = doc.lastAutoTable.finalY + 10;
+                    }
+                });
+
+                // Footer
+                const pageCount = doc.internal.getNumberOfPages();
+                for (let i = 1; i <= pageCount; i++) {
+                    doc.setPage(i);
+                    doc.setFontSize(8);
+                    doc.setTextColor(150, 150, 150);
+                    doc.text(`Blind Freddy Race Timer - ${currentTeam.name}`, 105, 285, { align: 'center' });
+                    doc.text(`Page ${i} of ${pageCount}`, 105, 290, { align: 'center' });
+                }
+
+                doc.save(`blind-freddy-race-report-${currentTeam.name.replace(/\s+/g, '-')}-${new Date().toISOString().split('T')[0]}.pdf`);
+            };
+
+            const generatePDFOld = () => {
+                const currentTeam = teams[activeTeam];
+                const goalLaps = getTeamGoalLaps(currentTeam);
+                const achievedLaps = getTeamAchievedLaps(currentTeam);
+                const percentageFactor = getTeamPercentageFactor(currentTeam);
+
+                let htmlContent = `
+                    <!DOCTYPE html>
+                    <html>
+                    <head>
+                        <meta charset="utf-8">
+                        <title>Blind Freddy Race Report - ${currentTeam.name}</title>
+                        <style>
+                            body { font-family: Arial, sans-serif; margin: 40px; color: #333; }
+                            h1 { color: #1e40af; border-bottom: 3px solid #1e40af; padding-bottom: 10px; }
+                            h2 { color: #1e40af; margin-top: 30px; border-bottom: 2px solid #ddd; padding-bottom: 5px; }
+                            table { width: 100%; border-collapse: collapse; margin: 20px 0; page-break-inside: avoid; }
+                            th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
+                            th { background-color: #1e40af; color: white; font-weight: bold; }
+                            tr:nth-child(even) { background-color: #f9f9f9; }
+                            .stats { background-color: #f0f0f0; padding: 15px; border-radius: 5px; margin: 15px 0; }
+                            .stats-row { display: flex; justify-content: space-between; margin: 5px 0; }
+                            .bonus { color: #16a34a; font-weight: bold; }
+                            .broken { color: #dc2626; font-weight: bold; }
+                            .base { color: #2563eb; font-weight: bold; }
+                            .changeover { color: #9333ea; font-weight: bold; }
+                            .driver-section { page-break-after: always; }
+                            .driver-section:last-child { page-break-after: auto; }
+                            .footer { margin-top: 30px; text-align: center; color: #666; font-size: 12px; }
+                            .team-summary { background-color: #e0f2fe; padding: 20px; border-radius: 5px; margin: 20px 0; }
+                            .highlight { font-size: 24px; font-weight: bold; color: #1e40af; }
+                        </style>
+                    </head>
+                    <body>
+                        <h1>🏁 Blind Freddy Race Report</h1>
+                        <p><strong>Generated:</strong> ${new Date().toLocaleString()}</p>
+
+                        <div class="team-summary">
+                            <h2>${currentTeam.name}</h2>
+                            <div class="stats-row">
+                                <span><strong>Goal Laps:</strong></span>
+                                <span class="highlight">${goalLaps.toFixed(2)}</span>
+                            </div>
+                            <div class="stats-row">
+                                <span><strong>Achieved Laps:</strong></span>
+                                <span class="highlight bonus">${achievedLaps}</span>
+                            </div>
+                            <div class="stats-row">
+                                <span><strong>Percentage Factor:</strong></span>
+                                <span class="highlight">${percentageFactor}%</span>
+                            </div>
+                        </div>
+
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Driver</th>
+                                    <th>Target</th>
+                                    <th>Base</th>
+                                    <th>Bonus</th>
+                                    <th>Changeover</th>
+                                    <th>Broken</th>
+                                    <th>Penalty</th>
+                                    <th>Achieved</th>
+                                    <th>Goal</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                `;
+
+                currentTeam.drivers.forEach(d => {
+                    htmlContent += `
+                        <tr>
+                            <td><strong>${d.name}</strong></td>
+                            <td>${d.targetTime}s</td>
+                            <td>${getDriverBaseLaps(d)}</td>
+                            <td class="bonus">${getDriverBonusLaps(d)}</td>
+                            <td class="changeover">${getDriverChangeoverLaps(d)}</td>
+                            <td class="broken">${getDriverBrokenLaps(d)}</td>
+                            <td class="broken">${d.penaltyLaps}</td>
+                            <td class="bonus"><strong>${getDriverAchievedLaps(d)}</strong></td>
+                            <td>${calculateDriverGoalLaps(d, currentTeam).toFixed(2)}</td>
+                        </tr>
+                    `;
+                });
+
+                htmlContent += `
+                                <tr style="font-weight: bold; background-color: #e0f2fe;">
+                                    <td>TOTAL</td>
+                                    <td></td>
+                                    <td>${currentTeam.drivers.reduce((sum, d) => sum + getDriverBaseLaps(d), 0)}</td>
+                                    <td class="bonus">${currentTeam.drivers.reduce((sum, d) => sum + getDriverBonusLaps(d), 0)}</td>
+                                    <td class="changeover">${currentTeam.drivers.reduce((sum, d) => sum + getDriverChangeoverLaps(d), 0)}</td>
+                                    <td class="broken">${currentTeam.drivers.reduce((sum, d) => sum + getDriverBrokenLaps(d), 0)}</td>
+                                    <td class="broken">${currentTeam.drivers.reduce((sum, d) => sum + d.penaltyLaps, 0)}</td>
+                                    <td class="bonus"><strong>${achievedLaps}</strong></td>
+                                    <td>${goalLaps.toFixed(2)}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                `;
+
+                // Individual driver details
+                currentTeam.drivers.forEach((driver, idx) => {
+                    const avgDelta = getAverageDelta(driver);
+                    const totalTime = driver.laps.reduce((acc, lap) => acc + lap.time, 0);
+                    const bestLap = driver.laps.length > 0 ? Math.min(...driver.laps.map(l => Math.abs(l.delta))) : 0;
+                    const worstLap = driver.laps.length > 0 ? Math.max(...driver.laps.map(l => Math.abs(l.delta))) : 0;
+
+                    htmlContent += `
+                        <div class="driver-section">
+                            <h2>${driver.name} - Detailed Lap Times</h2>
+                            <div class="stats">
+                                <div class="stats-row">
+                                    <span><strong>Target Lap Time:</strong></span>
+                                    <span>${driver.targetTime.toFixed(2)}s</span>
+                                </div>
+                                <div class="stats-row">
+                                    <span><strong>Total Laps Run:</strong></span>
+                                    <span>${driver.laps.length}</span>
+                                </div>
+                                <div class="stats-row">
+                                    <span><strong>Achieved Laps:</strong></span>
+                                    <span class="bonus">${getDriverAchievedLaps(driver)}</span>
+                                </div>
+                                <div class="stats-row">
+                                    <span><strong>Goal Laps:</strong></span>
+                                    <span>${calculateDriverGoalLaps(driver, currentTeam).toFixed(2)}</span>
+                                </div>
+                                <div class="stats-row">
+                                    <span><strong>Average Delta:</strong></span>
+                                    <span class="${avgDelta > 0.99 ? 'base' : avgDelta < 0 ? 'broken' : 'bonus'}">
+                                        ${avgDelta > 0 ? '+' : ''}${avgDelta.toFixed(2)}s
+                                    </span>
+                                </div>
+                                <div class="stats-row">
+                                    <span><strong>Total Time:</strong></span>
+                                    <span>${totalTime.toFixed(2)}s</span>
+                                </div>
+                                <div class="stats-row">
+                                    <span><strong>Best Consistency:</strong></span>
+                                    <span>${bestLap.toFixed(2)}s variance</span>
+                                </div>
+                                <div class="stats-row">
+                                    <span><strong>Worst Consistency:</strong></span>
+                                    <span>${worstLap.toFixed(2)}s variance</span>
+                                </div>
+                            </div>
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Lap #</th>
+                                        <th>Time</th>
+                                        <th>Target</th>
+                                        <th>Delta</th>
+                                        <th>Type</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                    `;
+
+                    if (driver.laps.length === 0) {
+                        htmlContent += `<tr><td colspan="5" style="text-align: center; color: #999;">No laps recorded</td></tr>`;
+                    } else {
+                        driver.laps.forEach(lap => {
+                            const statusClass = lap.lapType === 'bonus' ? 'bonus' :
+                                              lap.lapType === 'broken' ? 'broken' :
+                                              lap.lapType === 'changeover' ? 'changeover' : 'base';
+                            const statusText = lap.lapType === 'bonus' ? 'Bonus (+2)' :
+                                             lap.lapType === 'broken' ? 'Broken (0)' :
+                                             lap.lapType === 'changeover' ? 'Changeover (+1)' : 'Base (+1)';
+
+                            htmlContent += `
+                                <tr>
+                                    <td>${lap.number}</td>
+                                    <td>${lap.time.toFixed(2)}s</td>
+                                    <td>${driver.targetTime.toFixed(2)}s</td>
+                                    <td class="${statusClass}">${lap.lapType === 'changeover' ? '*****' : (lap.delta > 0 ? '+' : '') + lap.delta.toFixed(2) + 's'}</td>
+                                    <td class="${statusClass}">${statusText}</td>
+                                </tr>
+                            `;
+                        });
+                    }
+
+                    htmlContent += `
+                                </tbody>
+                            </table>
+                        </div>
+                    `;
+                });
+
+                htmlContent += `
+                        <div class="footer">
+                            <p>Blind Freddy Race Timer Report - ${currentTeam.name}</p>
+                            <p>Blind Freddy Scoring System: Bonus (+0.99s) = 2 laps | Base (>+0.99s) = 1 lap | Broken (<0s) = 0 laps</p>
+                        </div>
+                    </body>
+                    </html>
+                `;
+
+                const blob = new Blob([htmlContent], { type: 'text/html' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `blind-freddy-race-report-${currentTeam.name.replace(/\s+/g, '-')}-${new Date().toISOString().split('T')[0]}.html`;
+                link.click();
+                URL.revokeObjectURL(url);
+
+                alert('Report downloaded! Open the HTML file in your browser and use Print > Save as PDF to create a PDF.');
+            };
+
+            const generateDriverPDF = (teamIndex, driverIndex) => {
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF();
+
+                const currentTeam = teams[teamIndex];
+                const driver = currentTeam.drivers[driverIndex];
+                const avgDelta = getAverageDelta(driver);
+                const totalTime = driver.laps.reduce((acc, lap) => acc + lap.time, 0);
+                const bestLap = driver.laps.length > 0 ? Math.min(...driver.laps.map(l => Math.abs(l.delta))) : 0;
+                const worstLap = driver.laps.length > 0 ? Math.max(...driver.laps.map(l => Math.abs(l.delta))) : 0;
+
+                // Title
+                doc.setFontSize(20);
+                doc.setTextColor(30, 64, 175);
+                doc.text(`${driver.name} - Race Report`, 105, 20, { align: 'center' });
+
+                doc.setFontSize(10);
+                doc.setTextColor(0, 0, 0);
+                doc.text(`Team: ${currentTeam.name}`, 105, 28, { align: 'center' });
+                doc.text(`Generated: ${new Date().toLocaleString()}`, 105, 34, { align: 'center' });
+
+                // Key Stats
+                doc.setFontSize(14);
+                doc.setTextColor(30, 64, 175);
+                doc.text('Summary', 20, 45);
+
+                doc.setFontSize(11);
+                doc.setTextColor(0, 0, 0);
+                doc.text(`Target Lap Time: ${driver.targetTime.toFixed(2)}s`, 20, 53);
+                doc.text(`Total Laps Run: ${driver.laps.length}`, 20, 60);
+                doc.text(`Achieved Laps: ${getDriverAchievedLaps(driver)}`, 20, 67);
+                doc.text(`Goal Laps: ${calculateDriverGoalLaps(driver, currentTeam).toFixed(2)}`, 20, 74);
+
+                // Performance Stats
+                doc.setFontSize(14);
+                doc.setTextColor(30, 64, 175);
+                doc.text('Performance', 110, 45);
+
+                doc.setFontSize(11);
+                doc.setTextColor(0, 0, 0);
+                doc.text(`Base Laps: ${getDriverBaseLaps(driver)}`, 110, 53);
+                doc.text(`Bonus Laps: ${getDriverBonusLaps(driver)}`, 110, 60);
+                doc.text(`Changeover: ${getDriverChangeoverLaps(driver)}`, 110, 67);
+                doc.text(`Broken Laps: ${getDriverBrokenLaps(driver)}`, 110, 74);
+                doc.text(`Penalty Laps: ${driver.penaltyLaps}`, 110, 81);
+                doc.text(`Avg Delta: ${avgDelta > 0 ? '+' : ''}${avgDelta.toFixed(2)}s`, 110, 88);
+
+                // Lap Details Table
+                const lapData = driver.laps.map(lap => [
+                    lap.number,
+                    `${lap.time.toFixed(2)}s`,
+                    `${driver.targetTime.toFixed(2)}s`,
+                    lap.lapType === 'changeover' ? '*****' : `${lap.delta > 0 ? '+' : ''}${lap.delta.toFixed(2)}s`,
+                    lap.lapType === 'bonus' ? 'Bonus (+2)' :
+                    lap.lapType === 'broken' ? 'Broken (0)' :
+                    lap.lapType === 'changeover' ? 'Changeover (+1)' : 'Base (+1)'
+                ]);
+
+                if (lapData.length > 0) {
+                    doc.autoTable({
+                        startY: 100,
+                        head: [['Lap #', 'Time', 'Target', 'Delta', 'Type']],
+                        body: lapData,
+                        theme: 'striped',
+                        headStyles: { fillColor: [30, 64, 175] },
+                        styles: { fontSize: 9 }
+                    });
+                } else {
+                    doc.setFontSize(10);
+                    doc.setTextColor(100, 100, 100);
+                    doc.text('No laps recorded', 105, 110, { align: 'center' });
+                }
+
+                // Footer
+                const pageCount = doc.internal.getNumberOfPages();
+                for (let i = 1; i <= pageCount; i++) {
+                    doc.setPage(i);
+                    doc.setFontSize(8);
+                    doc.setTextColor(150, 150, 150);
+                    doc.text(`${driver.name} - ${currentTeam.name}`, 105, 285, { align: 'center' });
+                    doc.text(`Blind Freddy Scoring: Bonus (+0.99s) = 2 laps | Base (>+0.99s) = 1 lap | Broken (<0s) = 0 laps`, 105, 290, { align: 'center' });
+                }
+
+                doc.save(`${driver.name.replace(/\s+/g, '-')}-report-${new Date().toISOString().split('T')[0]}.pdf`);
+            };
+
+            const generateDriverPDFOld = (teamIndex, driverIndex) => {
+                const currentTeam = teams[teamIndex];
+                const driver = currentTeam.drivers[driverIndex];
+                const avgDelta = getAverageDelta(driver);
+                const totalTime = driver.laps.reduce((acc, lap) => acc + lap.time, 0);
+                const bestLap = driver.laps.length > 0 ? Math.min(...driver.laps.map(l => Math.abs(l.delta))) : 0;
+                const worstLap = driver.laps.length > 0 ? Math.max(...driver.laps.map(l => Math.abs(l.delta))) : 0;
+
+                let htmlContent = `
+                    <!DOCTYPE html>
+                    <html>
+                    <head>
+                        <meta charset="utf-8">
+                        <title>${driver.name} - Race Report</title>
+                        <style>
+                            body { font-family: Arial, sans-serif; margin: 40px; color: #333; }
+                            h1 { color: #1e40af; border-bottom: 3px solid #1e40af; padding-bottom: 10px; }
+                            h2 { color: #1e40af; margin-top: 20px; border-bottom: 2px solid #ddd; padding-bottom: 5px; }
+                            table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+                            th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
+                            th { background-color: #1e40af; color: white; font-weight: bold; }
+                            tr:nth-child(even) { background-color: #f9f9f9; }
+                            .stats { background-color: #f0f0f0; padding: 15px; border-radius: 5px; margin: 15px 0; }
+                            .stats-row { display: flex; justify-content: space-between; margin: 5px 0; }
+                            .bonus { color: #16a34a; font-weight: bold; }
+                            .broken { color: #dc2626; font-weight: bold; }
+                            .base { color: #2563eb; font-weight: bold; }
+                            .changeover { color: #9333ea; font-weight: bold; }
+                            .footer { margin-top: 30px; text-align: center; color: #666; font-size: 12px; }
+                            .driver-header { background-color: #e0f2fe; padding: 20px; border-radius: 5px; margin: 20px 0; }
+                            .highlight { font-size: 24px; font-weight: bold; color: #1e40af; }
+                        </style>
+                    </head>
+                    <body>
+                        <h1>🏁 ${driver.name} - Race Report</h1>
+                        <p><strong>Team:</strong> ${currentTeam.name}</p>
+                        <p><strong>Generated:</strong> ${new Date().toLocaleString()}</p>
+
+                        <div class="driver-header">
+                            <div class="stats-row">
+                                <span><strong>Target Lap Time:</strong></span>
+                                <span class="highlight">${driver.targetTime.toFixed(2)}s</span>
+                            </div>
+                            <div class="stats-row">
+                                <span><strong>Total Laps Run:</strong></span>
+                                <span class="highlight">${driver.laps.length}</span>
+                            </div>
+                            <div class="stats-row">
+                                <span><strong>Achieved Laps:</strong></span>
+                                <span class="highlight bonus">${getDriverAchievedLaps(driver)}</span>
+                            </div>
+                            <div class="stats-row">
+                                <span><strong>Goal Laps:</strong></span>
+                                <span class="highlight">${calculateDriverGoalLaps(driver, currentTeam).toFixed(2)}</span>
+                            </div>
+                        </div>
+
+                        <div class="stats">
+                            <h2>Performance Statistics</h2>
+                            <div class="stats-row">
+                                <span><strong>Base Laps:</strong></span>
+                                <span>${getDriverBaseLaps(driver)}</span>
+                            </div>
+                            <div class="stats-row">
+                                <span><strong>Bonus Laps:</strong></span>
+                                <span class="bonus">${getDriverBonusLaps(driver)}</span>
+                            </div>
+                            <div class="stats-row">
+                                <span><strong>Changeover Laps:</strong></span>
+                                <span class="changeover">${getDriverChangeoverLaps(driver)}</span>
+                            </div>
+                            <div class="stats-row">
+                                <span><strong>Broken Laps:</strong></span>
+                                <span class="broken">${getDriverBrokenLaps(driver)}</span>
+                            </div>
+                            <div class="stats-row">
+                                <span><strong>Penalty Laps:</strong></span>
+                                <span class="broken">${driver.penaltyLaps}</span>
+                            </div>
+                            <div class="stats-row">
+                                <span><strong>Average Delta:</strong></span>
+                                <span class="${avgDelta > 0.99 ? 'base' : avgDelta < 0 ? 'broken' : 'bonus'}">
+                                    ${avgDelta > 0 ? '+' : ''}${avgDelta.toFixed(2)}s
+                                </span>
+                            </div>
+                            <div class="stats-row">
+                                <span><strong>Total Time:</strong></span>
+                                <span>${totalTime.toFixed(2)}s</span>
+                            </div>
+                            <div class="stats-row">
+                                <span><strong>Best Consistency:</strong></span>
+                                <span>${bestLap.toFixed(2)}s variance</span>
+                            </div>
+                            <div class="stats-row">
+                                <span><strong>Worst Consistency:</strong></span>
+                                <span>${worstLap.toFixed(2)}s variance</span>
+                            </div>
+                        </div>
+
+                        <h2>Detailed Lap Times</h2>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Lap #</th>
+                                    <th>Time</th>
+                                    <th>Target</th>
+                                    <th>Delta</th>
+                                    <th>Type</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                `;
+
+                if (driver.laps.length === 0) {
+                    htmlContent += `<tr><td colspan="5" style="text-align: center; color: #999;">No laps recorded</td></tr>`;
+                } else {
+                    driver.laps.forEach(lap => {
+                        const statusClass = lap.lapType === 'bonus' ? 'bonus' :
+                                          lap.lapType === 'broken' ? 'broken' :
+                                          lap.lapType === 'changeover' ? 'changeover' : 'base';
+                        const statusText = lap.lapType === 'bonus' ? 'Bonus (+2)' :
+                                         lap.lapType === 'broken' ? 'Broken (0)' :
+                                         lap.lapType === 'changeover' ? 'Changeover (+1)' : 'Base (+1)';
+
+                        htmlContent += `
+                            <tr>
+                                <td>${lap.number}</td>
+                                <td>${lap.time.toFixed(2)}s</td>
+                                <td>${driver.targetTime.toFixed(2)}s</td>
+                                <td class="${statusClass}">${lap.lapType === 'changeover' ? '*****' : (lap.delta > 0 ? '+' : '') + lap.delta.toFixed(2) + 's'}</td>
+                                <td class="${statusClass}">${statusText}</td>
+                            </tr>
+                        `;
+                    });
+                }
+
+                htmlContent += `
+                            </tbody>
+                        </table>
+
+                        <div class="footer">
+                            <p>${driver.name} - ${currentTeam.name}</p>
+                            <p>Blind Freddy Scoring System: Bonus (+0.99s) = 2 laps | Base (>+0.99s) = 1 lap | Broken (<0s) = 0 laps</p>
+                        </div>
+                    </body>
+                    </html>
+                `;
+
+                const blob = new Blob([htmlContent], { type: 'text/html' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `${driver.name.replace(/\s+/g, '-')}-report-${new Date().toISOString().split('T')[0]}.html`;
+                link.click();
+                URL.revokeObjectURL(url);
+
+                alert('Report downloaded! Open the HTML file in your browser and use Print > Save as PDF to create a PDF.');
+            };
+
+            const exportCSV = () => {
+                let csvContent = 'Team,Driver,Lap Number,Lap Time (s),Target Time (s),Delta (s),Lap Type,Lap Value\n';
+
+                teams.forEach(team => {
+                    team.drivers.forEach(driver => {
+                        driver.laps.forEach(lap => {
+                            const lapType = lap.lapType === 'bonus' ? 'Bonus' :
+                                          lap.lapType === 'base' ? 'Base' :
+                                          lap.lapType === 'changeover' ? 'Changeover' : 'Broken';
+                            csvContent += `"${team.name}","${driver.name}",${lap.number},${lap.time.toFixed(2)},${driver.targetTime.toFixed(2)},${lap.delta.toFixed(2)},${lapType},${lap.lapValue}\n`;
+                        });
+                    });
+                });
+
+                const csvBlob = new Blob([csvContent], { type: 'text/csv' });
+                const url = URL.createObjectURL(csvBlob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `blind-freddy-race-data-${new Date().toISOString().split('T')[0]}.csv`;
+                link.click();
+                URL.revokeObjectURL(url);
+            };
+
+            const importData = (event) => {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    try {
+                        const data = JSON.parse(e.target.result);
+                        if (data.teams) {
+                            setTeams(data.teams);
+                            if (data.activeTeam !== undefined) {
+                                setActiveTeam(data.activeTeam);
+                            }
+                            if (data.activeDriver !== undefined) {
+                                setActiveDriver(data.activeDriver);
+                            }
+                        }
+                    } catch (error) {
+                        alert('Error importing data. Please check the file format.');
+                    }
+                };
+                reader.readAsText(file);
+                event.target.value = '';
+            };
+
+            const clearAllData = () => {
+                if (confirm('Are you sure you want to clear all data? This cannot be undone.')) {
+                    const resetTeams = [
+                        {
+                            id: 1,
+                            name: 'Team 1',
+                            drivers: [
+                                { id: 1, name: 'Harry', targetTime: 105, laps: [], penaltyLaps: 0 },
+                                { id: 2, name: 'Dave', targetTime: 105, laps: [], penaltyLaps: 0 },
+                                { id: 3, name: 'Tom', targetTime: 105, laps: [], penaltyLaps: 0 },
+                                { id: 4, name: 'Neil', targetTime: 105, laps: [], penaltyLaps: 0 }
+                            ]
+                        }
+                    ];
+                    setTeams(resetTeams);
+                    setActiveTeam(0);
+                    setActiveDriver(0);
+                }
+            };
+
+            const team = teams[activeTeam];
+            const driver = team.drivers[activeDriver];
+            const status = getCurrentStatus(driver);
+            const avgDelta = getAverageDelta(driver);
+
+            const bgClass = isDarkMode ? 'bg-gray-900' : 'bg-gradient-to-br from-gray-50 to-gray-100';
+            const textClass = isDarkMode ? 'text-white' : 'text-gray-800';
+            const cardBgClass = isDarkMode ? 'bg-gray-800' : 'bg-white';
+            const cardBgSecondaryClass = isDarkMode ? 'bg-gray-700' : 'bg-gray-100';
+            const inputBgClass = isDarkMode ? 'bg-gray-700' : 'bg-white';
+            const borderClass = isDarkMode ? 'border-gray-600' : 'border-gray-300';
+            const hoverClass = isDarkMode ? 'hover:bg-gray-750' : 'hover:bg-gray-100';
+            const tabInactiveClass = isDarkMode ? 'bg-gray-800 text-gray-400 hover:bg-gray-700' : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-300';
+            const labelClass = isDarkMode ? 'text-gray-400' : 'text-gray-700';
+            const statLabelClass = isDarkMode ? 'text-gray-400' : 'text-gray-600';
+            const stopwatchClass = isDarkMode ? 'text-yellow-400' : 'text-yellow-600';
+
+            return (
+                <div className={`min-h-screen ${bgClass} ${textClass} p-4 md:p-6`}>
+                    <div className="max-w-7xl mx-auto">
+                        <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
+                            <div className="flex items-center gap-3">
+                                <Flag className="w-8 h-8 text-yellow-400" />
+                                <h1 className="text-3xl font-bold">Blind Freddy Race Timer</h1>
+                            </div>
+                            <div className="flex gap-2 flex-wrap">
+                                <button
+                                    onClick={() => setShowTeamScoring(!showTeamScoring)}
+                                    className="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg font-semibold transition-colors flex items-center gap-2 text-white"
+                                    title="Team Scoring"
+                                >
+                                    <Users className="w-5 h-5" />
+                                    <span>Team Score</span>
+                                </button>
+                                <button
+                                    onClick={generatePDF}
+                                    className="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg font-semibold transition-colors flex items-center gap-2 text-white"
+                                    title="Export team report as PDF"
+                                >
+                                    <FileText className="w-5 h-5" />
+                                    <span>PDF</span>
+                                </button>
+                                <button
+                                    onClick={exportCSV}
+                                    className="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg font-semibold transition-colors flex items-center gap-2 text-white"
+                                    title="Export data as CSV"
+                                >
+                                    <Download className="w-5 h-5" />
+                                    <span>CSV</span>
+                                </button>
+                                <button
+                                    onClick={clearAllData}
+                                    className="px-4 py-2 bg-orange-600 hover:bg-orange-700 rounded-lg font-semibold transition-colors flex items-center gap-2 text-white"
+                                    title="Clear all data"
+                                >
+                                    <RefreshCw className="w-5 h-5" />
+                                    <span>Clear</span>
+                                </button>
+                                <button
+                                    onClick={() => setIsDarkMode(!isDarkMode)}
+                                    className="px-4 py-2 bg-gray-600 hover:bg-gray-700 rounded-lg font-semibold transition-colors"
+                                    title="Toggle theme"
+                                >
+                                    {isDarkMode ? '☀️' : '🌙'}
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Team Tabs - Hidden for single team */}
+                        {teams.length > 1 && (
+                            <div className="flex gap-2 mb-4 overflow-x-auto pb-2 items-center">
+                                {teams.map((t, idx) => (
+                                    <button
+                                        key={t.id}
+                                        onClick={() => setActiveTeam(idx)}
+                                        className={`px-6 py-3 rounded-t-lg font-semibold transition-colors whitespace-nowrap ${
+                                            activeTeam === idx ? 'bg-purple-600 text-white' : tabInactiveClass
+                                        }`}
+                                    >
+                                        {t.name}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+
+                        {/* Driver Tabs */}
+                        <div className="flex gap-2 mb-6 overflow-x-auto pb-2 items-center">
+                            {team.drivers.map((d, idx) => (
+                                <button
+                                    key={d.id}
+                                    onClick={() => setActiveDriver(idx)}
+                                    className={`px-6 py-3 rounded-t-lg font-semibold transition-colors whitespace-nowrap ${
+                                        activeDriver === idx ? 'bg-blue-600 text-white' : tabInactiveClass
+                                    }`}
+                                >
+                                    {d.name} ({d.laps.length})
+                                </button>
+                            ))}
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-6">
+                            <div className="flex flex-col gap-6">
+                                <div className={`${cardBgClass} rounded-lg p-4 shadow-lg`}>
+                                    <h2 className="text-base font-bold mb-2">Driver Settings</h2>
+                                    <div className="space-y-2">
+                                        <div>
+                                            <label className={`block text-xs ${labelClass} mb-0.5 font-semibold`}>Name</label>
+                                            <input
+                                                type="text"
+                                                value={driver.name}
+                                                onChange={(e) => updateDriverName(activeTeam, activeDriver, e.target.value)}
+                                                className={`w-full px-2 py-1.5 ${inputBgClass} rounded border ${borderClass} focus:border-blue-500 focus:outline-none text-sm`}
+                                            />
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <div>
+                                                <label className={`block text-xs ${labelClass} mb-0.5 font-semibold`}>Target (s)</label>
+                                                <input
+                                                    type="number"
+                                                    step="0.01"
+                                                    value={driver.targetTime}
+                                                    onChange={(e) => updateTargetTime(activeTeam, activeDriver, e.target.value)}
+                                                    className={`w-full px-2 py-1.5 ${inputBgClass} rounded border ${borderClass} focus:border-blue-500 focus:outline-none text-sm`}
+                                                />
+                                                <div className={`text-xs ${statLabelClass} mt-0.5`}>
+                                                    {Math.floor(driver.targetTime / 60)}:{(driver.targetTime % 60).toFixed(0).padStart(2, '0')}
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <label className={`block text-xs ${labelClass} mb-0.5 font-semibold`}>Penalty</label>
+                                                <input
+                                                    type="number"
+                                                    value={driver.penaltyLaps}
+                                                    onChange={(e) => updatePenaltyLaps(activeTeam, activeDriver, e.target.value)}
+                                                    className={`w-full px-2 py-1.5 ${inputBgClass} rounded border ${borderClass} focus:border-blue-500 focus:outline-none text-sm`}
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className={`${cardBgClass} rounded-lg p-5 shadow-lg flex flex-col flex-1`}>
+                                    <div className="flex justify-between items-center mb-3">
+                                        <h2 className="text-lg font-bold">Driver Statistics</h2>
+                                        <button
+                                            onClick={() => generateDriverPDF(activeTeam, activeDriver)}
+                                            className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded font-semibold transition-colors flex items-center gap-1 text-sm"
+                                            title="Export driver report as PDF"
+                                        >
+                                            <FileText className="w-4 h-4" />
+                                            <span>PDF</span>
+                                        </button>
+                                    </div>
+                                    <div className="space-y-2 text-sm flex-1 flex flex-col justify-center">
+                                        <div className="flex justify-between">
+                                            <span className={statLabelClass}>Achieved Laps:</span>
+                                            <span className="font-bold text-yellow-400">{getDriverAchievedLaps(driver)}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className={statLabelClass}>Base Laps:</span>
+                                            <span className="font-bold">{getDriverBaseLaps(driver)}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className={statLabelClass}>Bonus Laps:</span>
+                                            <span className="font-bold text-green-400">{getDriverBonusLaps(driver)}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className={statLabelClass}>Changeover:</span>
+                                            <span className="font-bold text-purple-400">{getDriverChangeoverLaps(driver)}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className={statLabelClass}>Broken Laps:</span>
+                                            <span className="font-bold text-red-400">{getDriverBrokenLaps(driver)}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className={statLabelClass}>Penalty Laps:</span>
+                                            <span className="font-bold text-red-400">{driver.penaltyLaps}</span>
+                                        </div>
+                                        <div className="flex justify-between pt-2 border-t border-gray-600">
+                                            <span className={statLabelClass}>Goal Laps:</span>
+                                            <span className="font-bold">{calculateDriverGoalLaps(driver, team).toFixed(2)}</span>
+                                        </div>
+                                        <div className="flex justify-between pt-2 border-t border-gray-600">
+                                            <span className={statLabelClass}>Average Delta:</span>
+                                            <span className={`font-bold ${avgDelta > 0 ? 'text-red-400' : avgDelta < 0 ? 'text-blue-400' : 'text-green-400'}`}>
+                                                {avgDelta > 0 ? '+' : ''}{avgDelta.toFixed(2)}s
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="flex flex-col gap-6">
+                                <div className={`${cardBgClass} rounded-lg p-5 shadow-lg`}>
+                                    <h2 className="text-lg font-bold mb-3">Live Stopwatch</h2>
+                                    <div className={`${cardBgSecondaryClass} rounded-lg p-6 text-center`}>
+                                        <div className={`text-xs ${statLabelClass} mb-3`}>
+                                            {!isRunning ? 'Press Enter to start timing' : 'Press Enter to record lap & start next'}
+                                        </div>
+                                        <div className={`text-7xl font-mono font-bold ${stopwatchClass} mb-4`}>
+                                            {elapsedTime.toFixed(2)}s
+                                        </div>
+                                        <div className="flex gap-2 justify-center mb-4">
+                                            {!isRunning ? (
+                                                <button
+                                                    onClick={startStopwatch}
+                                                    className="px-6 py-2 bg-green-600 hover:bg-green-700 rounded-lg font-semibold transition-colors text-white"
+                                                >
+                                                    Start
+                                                </button>
+                                            ) : (
+                                                <button
+                                                    onClick={stopStopwatch}
+                                                    className="px-6 py-2 bg-red-600 hover:bg-red-700 rounded-lg font-semibold transition-colors text-white"
+                                                >
+                                                    Stop
+                                                </button>
+                                            )}
+                                            <button
+                                                onClick={resetStopwatch}
+                                                className="px-6 py-2 bg-gray-600 hover:bg-gray-700 rounded-lg font-semibold transition-colors text-white"
+                                            >
+                                                Reset
+                                            </button>
+                                        </div>
+                                        <div className={`text-xs ${statLabelClass}`}>
+                                            Or type time manually to the right
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className={`${status.color} rounded-lg p-8 text-center shadow-lg flex-1 flex flex-col items-center justify-center text-white`}>
+                                    <div className="text-5xl font-bold mb-3">{status.signal}</div>
+                                    <div className="text-xl">{status.message}</div>
+                                </div>
+                            </div>
+
+                            <div className="flex flex-col gap-6">
+                                <div className={`${cardBgClass} rounded-lg p-5 shadow-lg`}>
+                                    <div className="flex gap-2">
+                                        <input
+                                            type="text"
+                                            value={lapInput}
+                                            onChange={(e) => setLapInput(e.target.value)}
+                                            placeholder="Manual lap time (optional)"
+                                            className={`flex-1 px-3 py-2 ${inputBgClass} rounded-lg border ${borderClass} focus:border-blue-500 focus:outline-none text-sm`}
+                                        />
+                                        <button
+                                            onClick={addLap}
+                                            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg font-semibold transition-colors text-white"
+                                        >
+                                            <Plus className="w-5 h-5" />
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div className={`${cardBgClass} rounded-lg p-5 shadow-lg flex-1 flex flex-col`}>
+                                    <div className="flex justify-between items-center mb-3">
+                                        <h2 className="text-lg font-bold">Lap History</h2>
+                                        <div className="flex items-center gap-3">
+                                            <button
+                                                onClick={() => clearDriverLaps(activeTeam, activeDriver)}
+                                                className="px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white rounded font-semibold transition-colors flex items-center gap-1 text-sm"
+                                                title="Clear all laps for this driver"
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                                <span>Clear</span>
+                                            </button>
+                                            <div className="text-right">
+                                                <div className={`text-xs ${statLabelClass}`}>Achieved Laps</div>
+                                                <div className="text-2xl font-bold text-yellow-400">{getDriverAchievedLaps(driver)}</div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="overflow-y-auto flex-1">
+                                        <table className="w-full text-sm">
+                                            <thead className={`sticky top-0 ${cardBgClass}`}>
+                                                <tr className={`border-b ${isDarkMode ? 'border-gray-700' : 'border-gray-300'}`}>
+                                                    <th className="text-left py-2 px-3">Lap</th>
+                                                    <th className="text-left py-2 px-3">Time</th>
+                                                    <th className="text-left py-2 px-3">Delta</th>
+                                                    <th className="text-left py-2 px-3">Type</th>
+                                                    <th className="text-left py-2 px-3" colSpan="2"></th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {driver.laps.length === 0 ? (
+                                                    <tr>
+                                                        <td colSpan="6" className={`text-center py-8 ${statLabelClass} text-sm`}>No laps recorded yet</td>
+                                                    </tr>
+                                                ) : (
+                                                    [...driver.laps].reverse().map((lap, idx) => {
+                                                        const originalIdx = driver.laps.length - 1 - idx;
+                                                        return (
+                                                            <tr key={originalIdx} className={`border-b ${isDarkMode ? 'border-gray-700' : 'border-gray-300'} ${hoverClass}`}>
+                                                                <td className="py-2 px-3 font-bold">#{lap.number}</td>
+                                                                <td className="py-2 px-3">{lap.time.toFixed(2)}s</td>
+                                                                <td className={`py-2 px-3 font-bold ${
+                                                                    lap.lapType === 'broken' ? 'text-red-400' :
+                                                                    lap.lapType === 'bonus' ? 'text-green-400' :
+                                                                    lap.lapType === 'changeover' ? 'text-purple-400' :
+                                                                    'text-blue-400'
+                                                                }`}>
+                                                                    {lap.lapType === 'changeover' ? '*****' : `${lap.delta > 0 ? '+' : ''}${lap.delta.toFixed(2)}s`}
+                                                                </td>
+                                                                <td className="py-2 px-3">
+                                                                    {lap.lapType === 'bonus' ? (
+                                                                        <span className="text-green-400 font-bold">Bonus</span>
+                                                                    ) : lap.lapType === 'base' ? (
+                                                                        <span className="text-blue-400 font-bold">Base</span>
+                                                                    ) : lap.lapType === 'changeover' ? (
+                                                                        <span className="text-purple-400 font-bold">Change</span>
+                                                                    ) : (
+                                                                        <span className="text-red-400 font-bold">Broken</span>
+                                                                    )}
+                                                                </td>
+                                                                <td className="py-2 px-3">
+                                                                    <button
+                                                                        onClick={() => toggleChangeoverLap(activeTeam, activeDriver, originalIdx)}
+                                                                        className={`${lap.lapType === 'changeover' ? 'text-purple-400' : 'text-gray-400'} hover:text-purple-300 transition-colors`}
+                                                                        title={lap.lapType === 'changeover' ? 'Remove changeover mark' : 'Mark as changeover'}
+                                                                    >
+                                                                        <Repeat className="w-3 h-3" />
+                                                                    </button>
+                                                                </td>
+                                                                <td className="py-2 px-3">
+                                                                    <button
+                                                                        onClick={() => removeLap(activeTeam, activeDriver, originalIdx)}
+                                                                        className="text-red-400 hover:text-red-300 transition-colors"
+                                                                    >
+                                                                        <Trash2 className="w-3 h-3" />
+                                                                    </button>
+                                                                </td>
+                                                            </tr>
+                                                        );
+                                                    })
+                                                )}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+
+                    {/* Driver Switch Modal */}
+                    {showDriverSwitch && changeoverLapInfo && (
+                        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+                            <div className={`${cardBgClass} rounded-lg p-6 max-w-md w-full shadow-2xl`}>
+                                <div className="mb-4">
+                                    <h2 className="text-2xl font-bold mb-2">🏁 Changeover Lap</h2>
+                                    <p className={`text-sm ${statLabelClass}`}>Switch to which driver?</p>
+                                </div>
+
+                                <div className="space-y-3">
+                                    {team.drivers.map((d, idx) => (
+                                        <button
+                                            key={d.id}
+                                            onClick={() => confirmDriverSwitch(idx)}
+                                            disabled={idx === changeoverLapInfo.driverIndex}
+                                            className={`w-full px-4 py-3 rounded-lg font-semibold transition-colors text-left flex items-center justify-between ${
+                                                idx === changeoverLapInfo.driverIndex
+                                                    ? isDarkMode
+                                                        ? 'bg-gray-700 text-gray-500 cursor-not-allowed'
+                                                        : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                                                    : isDarkMode
+                                                        ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                                                        : 'bg-blue-600 hover:bg-blue-700 text-white'
+                                            }`}
+                                        >
+                                            <span>{d.name}</span>
+                                            {idx === changeoverLapInfo.driverIndex && (
+                                                <span className="text-xs">(Current)</span>
+                                            )}
+                                        </button>
+                                    ))}
+                                </div>
+
+                                <button
+                                    onClick={() => {
+                                        setShowDriverSwitch(false);
+                                        setChangeoverLapInfo(null);
+                                    }}
+                                    className={`mt-4 w-full px-4 py-2 rounded-lg font-semibold transition-colors ${
+                                        isDarkMode
+                                            ? 'bg-gray-700 hover:bg-gray-600 text-white'
+                                            : 'bg-gray-300 hover:bg-gray-400 text-gray-800'
+                                    }`}
+                                >
+                                    Cancel
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Team Scoring Modal */}
+                    {showTeamScoring && (
+                        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+                            <div className={`${cardBgClass} rounded-lg p-6 max-w-4xl w-full shadow-2xl max-h-[90vh] overflow-y-auto`}>
+                                <div className="flex justify-between items-center mb-4">
+                                    <h2 className="text-2xl font-bold">Team Scoring - Blind Freddy System</h2>
+                                    <button
+                                        onClick={() => setShowTeamScoring(false)}
+                                        className="text-gray-400 hover:text-gray-600 transition-colors"
+                                    >
+                                        <X className="w-6 h-6" />
+                                    </button>
+                                </div>
+
+                                {teams.map((t, teamIdx) => {
+                                    const goalLaps = getTeamGoalLaps(t);
+                                    const achievedLaps = getTeamAchievedLaps(t);
+                                    const percentageFactor = getTeamPercentageFactor(t);
+
+                                    return (
+                                        <div key={t.id} className={`${cardBgSecondaryClass} rounded-lg p-5 mb-4`}>
+                                            <h3 className="text-xl font-bold mb-4">{t.name}</h3>
+
+                                            <div className="grid grid-cols-3 gap-4 mb-4">
+                                                <div className="text-center">
+                                                    <div className={`text-sm ${statLabelClass}`}>Goal Laps</div>
+                                                    <div className="text-2xl font-bold text-blue-400">{goalLaps.toFixed(2)}</div>
+                                                </div>
+                                                <div className="text-center">
+                                                    <div className={`text-sm ${statLabelClass}`}>Achieved Laps</div>
+                                                    <div className="text-2xl font-bold text-yellow-400">{achievedLaps}</div>
+                                                </div>
+                                                <div className="text-center">
+                                                    <div className={`text-sm ${statLabelClass}`}>Percentage Factor</div>
+                                                    <div className="text-2xl font-bold text-green-400">{percentageFactor}%</div>
+                                                </div>
+                                            </div>
+
+                                            <table className="w-full text-sm mt-4">
+                                                <thead className={`border-b ${isDarkMode ? 'border-gray-600' : 'border-gray-300'}`}>
+                                                    <tr>
+                                                        <th className="text-left py-2">Driver</th>
+                                                        <th className="text-center py-2">Target</th>
+                                                        <th className="text-center py-2">Base</th>
+                                                        <th className="text-center py-2">Bonus</th>
+                                                        <th className="text-center py-2">Change</th>
+                                                        <th className="text-center py-2">Broken</th>
+                                                        <th className="text-center py-2">Penalty</th>
+                                                        <th className="text-center py-2">Achieved</th>
+                                                        <th className="text-center py-2">Goal</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {t.drivers.map((d, driverIdx) => (
+                                                        <tr key={d.id} className={`border-b ${isDarkMode ? 'border-gray-700' : 'border-gray-300'}`}>
+                                                            <td className="py-2">{d.name}</td>
+                                                            <td className="text-center">{d.targetTime}s</td>
+                                                            <td className="text-center">{getDriverBaseLaps(d)}</td>
+                                                            <td className="text-center text-green-400">{getDriverBonusLaps(d)}</td>
+                                                            <td className="text-center text-purple-400">{getDriverChangeoverLaps(d)}</td>
+                                                            <td className="text-center text-red-400">{getDriverBrokenLaps(d)}</td>
+                                                            <td className="text-center text-red-400">{d.penaltyLaps}</td>
+                                                            <td className="text-center font-bold text-yellow-400">{getDriverAchievedLaps(d)}</td>
+                                                            <td className="text-center font-bold">{calculateDriverGoalLaps(d, t).toFixed(2)}</td>
+                                                        </tr>
+                                                    ))}
+                                                    <tr className="font-bold">
+                                                        <td className="py-2">TOTAL</td>
+                                                        <td></td>
+                                                        <td className="text-center">{t.drivers.reduce((sum, d) => sum + getDriverBaseLaps(d), 0)}</td>
+                                                        <td className="text-center text-green-400">{t.drivers.reduce((sum, d) => sum + getDriverBonusLaps(d), 0)}</td>
+                                                        <td className="text-center text-purple-400">{t.drivers.reduce((sum, d) => sum + getDriverChangeoverLaps(d), 0)}</td>
+                                                        <td className="text-center text-red-400">{t.drivers.reduce((sum, d) => sum + getDriverBrokenLaps(d), 0)}</td>
+                                                        <td className="text-center text-red-400">{t.drivers.reduce((sum, d) => sum + d.penaltyLaps, 0)}</td>
+                                                        <td className="text-center text-yellow-400">{achievedLaps}</td>
+                                                        <td className="text-center">{goalLaps.toFixed(2)}</td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<BlindFreddyRaceTimer />);
+    </script>
+</body>
+</html>
