@@ -97,6 +97,8 @@
                 {
                     id: 1,
                     name: 'Blind Freddy',
+                    sessionNumber: '',
+                    sessionNumber: '',
                     drivers: [
                         { id: 1, name: 'Harry', targetTime: 105, laps: [], penaltyLaps: 0 },
                         { id: 2, name: 'Dave', targetTime: 105, laps: [], penaltyLaps: 0 },
@@ -565,11 +567,11 @@
                 if (lapType === 'changeover') {
                     return { signal: 'CHANGEOVER', color: 'bg-purple-500', message: 'Driver change' };
                 } else if (lapType === 'bonus') {
-                    return { signal: 'BONUS LAP!', color: 'bg-green-500', message: `+2 Laps (${delta > 0 ? '+' : ''}${delta.toFixed(2)}s)` };
+                    return { signal: 'BONUS LAP!', color: 'bg-green-500', message: `+2 Laps ${!isNaN(delta) ? `(${delta > 0 ? '+' : ''}${delta.toFixed(2)}s)` : ''}` };
                 } else if (lapType === 'base') {
-                    return { signal: 'BASE LAP', color: 'bg-blue-500', message: `+1 Lap (${delta > 0 ? '+' : ''}${delta.toFixed(2)}s)` };
+                    return { signal: 'BASE LAP', color: 'bg-blue-500', message: `+1 Lap ${!isNaN(delta) ? `(${delta > 0 ? '+' : ''}${delta.toFixed(2)}s)` : ''}` };
                 } else {
-                    return { signal: 'BROKEN!', color: 'bg-red-500', message: `Wasted lap! (${delta.toFixed(2)}s)` };
+                    return { signal: 'BROKEN!', color: 'bg-red-500', message: `Wasted lap! ${!isNaN(delta) ? `(${delta.toFixed(2)}s)` : ''}` };
                 }
             };
 
@@ -723,14 +725,20 @@
 
                 doc.setFontSize(10);
                 doc.setTextColor(0, 0, 0);
-                doc.text(`Generated: ${new Date().toLocaleString()}`, 20, 28);
+                let yPos = 28;
+                if (team.sessionNumber) {
+                    doc.text(`Session #: ${team.sessionNumber}`, 20, yPos);
+                    yPos += 6;
+                }
+                doc.text(`Generated: ${new Date().toLocaleString()}`, 20, yPos);
 
                 // Team Summary
                 doc.setFontSize(12);
                 doc.setTextColor(0, 0, 0);
-                doc.text(`Goal Laps: ${goalLaps.toFixed(2)}`, 20, 40);
-                doc.text(`Achieved Laps: ${achievedLaps}`, 20, 47);
-                doc.text(`Percentage Factor: ${percentageFactor}%`, 20, 54);
+                yPos += 12;
+                doc.text(`Goal Laps: ${goalLaps.toFixed(2)}`, 20, yPos);
+                doc.text(`Achieved Laps: ${achievedLaps}`, 20, yPos + 7);
+                doc.text(`Percentage Factor: ${percentageFactor}%`, 20, yPos + 14);
 
                 // Driver Summary Table
                 const teamTotal = getTeamBaseAndChangeoverLaps(team);
@@ -766,7 +774,7 @@
                 ]);
 
                 doc.autoTable({
-                    startY: 65,
+                    startY: yPos + 20,
                     head: [['Driver', 'Target', 'Base', '% Team', 'Bonus', 'C/O', 'Broken', 'Penalty', 'Achieved', 'Goal']],
                     body: driverData,
                     theme: 'striped',
@@ -1071,34 +1079,41 @@
 
                 doc.setFontSize(10);
                 doc.setTextColor(0, 0, 0);
-                doc.text(`Team: Blind Freddy`, 20, 28);
-                doc.text(`Generated: ${new Date().toLocaleString()}`, 20, 34);
+                let yPos = 28;
+                doc.text(`Team: Blind Freddy`, 20, yPos);
+                yPos += 6;
+                if (currentTeam.sessionNumber) {
+                    doc.text(`Session #: ${currentTeam.sessionNumber}`, 20, yPos);
+                    yPos += 6;
+                }
+                doc.text(`Generated: ${new Date().toLocaleString()}`, 20, yPos);
 
                 // Key Stats
                 doc.setFontSize(14);
                 doc.setTextColor(30, 64, 175);
-                doc.text('Summary', 20, 45);
+                doc.text('Summary', 20, yPos + 11);
 
                 doc.setFontSize(11);
                 doc.setTextColor(0, 0, 0);
-                doc.text(`Target Lap Time: ${driver.targetTime.toFixed(2)}s`, 20, 53);
-                doc.text(`Total Laps Run: ${driver.laps.length}`, 20, 60);
-                doc.text(`Achieved Laps: ${getDriverAchievedLaps(driver)}`, 20, 67);
-                doc.text(`Goal Laps: ${calculateDriverGoalLaps(driver, currentTeam).toFixed(2)}`, 20, 74);
+                let statsY = yPos + 19;
+                doc.text(`Target Lap Time: ${driver.targetTime.toFixed(2)}s`, 20, statsY);
+                doc.text(`Total Laps Run: ${driver.laps.length}`, 20, statsY + 7);
+                doc.text(`Achieved Laps: ${getDriverAchievedLaps(driver)}`, 20, statsY + 14);
+                doc.text(`Goal Laps: ${calculateDriverGoalLaps(driver, currentTeam).toFixed(2)}`, 20, statsY + 21);
 
                 // Performance Stats
                 doc.setFontSize(14);
                 doc.setTextColor(30, 64, 175);
-                doc.text('Performance', 110, 45);
+                doc.text('Performance', 110, yPos + 11);
 
                 doc.setFontSize(11);
                 doc.setTextColor(0, 0, 0);
-                doc.text(`Base Laps: ${getDriverBaseLaps(driver)}`, 110, 53);
-                doc.text(`Bonus Laps: ${getDriverBonusLaps(driver)}`, 110, 60);
-                doc.text(`Changeover: ${getDriverChangeoverLaps(driver)}`, 110, 67);
-                doc.text(`Broken Laps: ${getDriverBrokenLaps(driver)}`, 110, 74);
-                doc.text(`Penalty Laps: ${driver.penaltyLaps}`, 110, 81);
-                doc.text(`Avg Delta: ${avgDelta > 0 ? '+' : ''}${avgDelta.toFixed(2)}s`, 110, 88);
+                doc.text(`Base Laps: ${getDriverBaseLaps(driver)}`, 110, statsY);
+                doc.text(`Bonus Laps: ${getDriverBonusLaps(driver)}`, 110, statsY + 7);
+                doc.text(`Changeover: ${getDriverChangeoverLaps(driver)}`, 110, statsY + 14);
+                doc.text(`Broken Laps: ${getDriverBrokenLaps(driver)}`, 110, statsY + 21);
+                doc.text(`Penalty Laps: ${driver.penaltyLaps}`, 110, statsY + 28);
+                doc.text(`Avg Delta: ${avgDelta > 0 ? '+' : ''}${avgDelta.toFixed(2)}s`, 110, statsY + 35);
 
                 // Lap Details Table
                 const lapData = driver.laps.map(lap => [
@@ -1113,7 +1128,7 @@
 
                 if (lapData.length > 0) {
                     doc.autoTable({
-                        startY: 100,
+                        startY: statsY + 45,
                         head: [['Lap #', 'Time', 'Target', 'Delta', 'Type']],
                         body: lapData,
                         theme: 'striped',
@@ -1371,6 +1386,7 @@
                         {
                             id: 1,
                             name: 'Blind Freddy',
+                            sessionNumber: '',
                             drivers: [
                                 { id: 1, name: 'Harry', targetTime: 105, laps: [], penaltyLaps: 0 },
                                 { id: 2, name: 'Dave', targetTime: 105, laps: [], penaltyLaps: 0 },
@@ -1493,18 +1509,34 @@
                         )}
 
                         {/* Driver Tabs */}
-                        <div className="flex gap-2 mb-6 overflow-x-auto pb-2 items-center">
-                            {team.drivers.map((d, idx) => (
-                                <button
-                                    key={d.id}
-                                    onClick={() => setActiveDriver(idx)}
-                                    className={`px-6 py-3 rounded-t-lg font-semibold transition-colors whitespace-nowrap ${
-                                        activeDriver === idx ? 'bg-blue-600 text-white' : tabInactiveClass
-                                    }`}
-                                >
-                                    {d.name} ({d.laps.length})
-                                </button>
-                            ))}
+                        <div className="flex gap-2 mb-6 overflow-x-auto pb-2 items-center justify-between flex-wrap">
+                            <div className="flex gap-2">
+                                {team.drivers.map((d, idx) => (
+                                    <button
+                                        key={d.id}
+                                        onClick={() => setActiveDriver(idx)}
+                                        className={`px-6 py-3 rounded-t-lg font-semibold transition-colors whitespace-nowrap ${
+                                            activeDriver === idx ? 'bg-blue-600 text-white' : tabInactiveClass
+                                        }`}
+                                    >
+                                        {d.name} ({d.laps.length})
+                                    </button>
+                                ))}
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <label className={`text-sm font-semibold ${labelClass}`}>Session #:</label>
+                                <input
+                                    type="text"
+                                    value={team.sessionNumber || ''}
+                                    onChange={(e) => {
+                                        const updatedTeams = [...teams];
+                                        updatedTeams[0].sessionNumber = e.target.value;
+                                        setTeams(updatedTeams);
+                                    }}
+                                    placeholder="e.g., 1, 2, 3..."
+                                    className={`w-24 px-3 py-2 ${inputBgClass} rounded-lg border ${borderClass} focus:border-blue-500 focus:outline-none text-sm`}
+                                />
+                            </div>
                         </div>
 
                         <div className="grid grid-cols-3 gap-6">
@@ -1532,7 +1564,7 @@
                                                     className={`w-full px-2 py-1.5 ${inputBgClass} rounded border ${borderClass} focus:border-blue-500 focus:outline-none text-sm`}
                                                 />
                                                 <div className={`text-xs ${statLabelClass} mt-0.5`}>
-                                                    {Math.floor(driver.targetTime / 60)}:{(driver.targetTime % 60).toFixed(0).padStart(2, '0')}
+                                                    {driver.targetTime ? `${Math.floor(driver.targetTime / 60)}:${(driver.targetTime % 60).toFixed(0).padStart(2, '0')}` : ''}
                                                 </div>
                                             </div>
                                             <div>
@@ -1597,12 +1629,12 @@
                                         </div>
                                         <div className="flex justify-between pt-2 border-t border-gray-600">
                                             <span className={statLabelClass}>Goal Laps:</span>
-                                            <span className="font-bold">{calculateDriverGoalLaps(driver, team).toFixed(2)}</span>
+                                            <span className="font-bold">{isNaN(calculateDriverGoalLaps(driver, team)) ? '-' : calculateDriverGoalLaps(driver, team).toFixed(2)}</span>
                                         </div>
                                         <div className="flex justify-between pt-2 border-t border-gray-600">
                                             <span className={statLabelClass}>Average Delta:</span>
                                             <span className={`font-bold ${avgDelta > 0 ? 'text-red-400' : avgDelta < 0 ? 'text-blue-400' : 'text-green-400'}`}>
-                                                {avgDelta > 0 ? '+' : ''}{avgDelta.toFixed(2)}s
+                                                {isNaN(avgDelta) ? '-' : `${avgDelta > 0 ? '+' : ''}${avgDelta.toFixed(2)}s`}
                                             </span>
                                         </div>
                                     </div>
@@ -1769,7 +1801,7 @@
                                                                     lap.lapType === 'changeover' ? 'text-purple-400' :
                                                                     'text-blue-400'
                                                                 }`}>
-                                                                    {lap.lapType === 'changeover' ? '***' : `${lap.delta > 0 ? '+' : ''}${lap.delta.toFixed(2)}s`}
+                                                                    {lap.lapType === 'changeover' ? '***' : (!isNaN(lap.delta) ? `${lap.delta > 0 ? '+' : ''}${lap.delta.toFixed(2)}s` : '-')}
                                                                 </td>
                                                                 <td className="py-2 px-2">
                                                                     {lap.lapType === 'bonus' ? (
