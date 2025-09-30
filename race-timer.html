@@ -110,6 +110,7 @@
             const [lapInput, setLapInput] = useState('');
             const [elapsedTime, setElapsedTime] = useState(0);
             const [isRunning, setIsRunning] = useState(false);
+            const [timerDriverIndex, setTimerDriverIndex] = useState(null);
             const startTimeRef = useRef(null);
             const intervalRef = useRef(null);
             const lastLapTimeRef = useRef(null);
@@ -196,6 +197,7 @@
                 startTimeRef.current = Date.now();
                 setElapsedTime(0);
                 setIsRunning(true);
+                setTimerDriverIndex(activeDriver);
             };
 
             const stopStopwatch = () => {
@@ -205,6 +207,10 @@
             const resetStopwatch = () => {
                 setIsRunning(false);
                 setElapsedTime(0);
+                setTimerDriverIndex(null);
+                if (intervalRef.current) {
+                    clearInterval(intervalRef.current);
+                }
             };
 
             const calculateLapType = (delta, isChangeover = false) => {
@@ -314,6 +320,9 @@
                     const updatedTeams = [...teams];
                     updatedTeams[teamIndex].drivers[driverIndex].laps = [];
                     setTeams(updatedTeams);
+
+                    // Reset the stopwatch timer
+                    resetStopwatch();
                 }
             };
 
@@ -379,6 +388,9 @@
                     setActiveDriver(newDriverIndex);
                     setShowDriverSwitch(false);
                     setChangeoverLapInfo(null);
+
+                    // Reset stopwatch for new driver
+                    resetStopwatch();
                 }
             };
 
@@ -1329,6 +1341,9 @@
                     setTeams(resetTeams);
                     setActiveTeam(0);
                     setActiveDriver(0);
+
+                    // Reset the stopwatch timer
+                    resetStopwatch();
                 }
             };
 
@@ -1557,6 +1572,15 @@
                                 <div className={`${cardBgClass} rounded-lg p-5 shadow-lg`}>
                                     <h2 className="text-lg font-bold mb-3">Live Stopwatch</h2>
                                     <div className={`${cardBgSecondaryClass} rounded-lg p-6 text-center`}>
+                                        <div className="flex items-center justify-center gap-3 mb-2">
+                                            <div className="text-lg font-bold text-blue-500">
+                                                {isRunning && timerDriverIndex !== null ? team.drivers[timerDriverIndex].name : driver.name}
+                                            </div>
+                                            <div className={`text-lg font-bold ${statLabelClass}`}>|</div>
+                                            <div className={`text-lg font-bold ${textClass}`}>
+                                                Lap {isRunning && timerDriverIndex !== null ? team.drivers[timerDriverIndex].laps.length + 1 : driver.laps.length + 1}
+                                            </div>
+                                        </div>
                                         <div className={`text-xs ${statLabelClass} mb-3`}>
                                             {!isRunning ? 'Press Enter to start timing' : 'Press Enter to record lap & start next'}
                                         </div>
@@ -1586,6 +1610,43 @@
                                                 Reset
                                             </button>
                                         </div>
+                                        {isRunning && (
+                                            <div className="mb-4">
+                                                <button
+                                                    onClick={() => {
+                                                        const lapTime = elapsedTime;
+                                                        const updatedTeams = [...teams];
+                                                        const team = updatedTeams[0];
+                                                        const currentDriver = team.drivers[activeDriver];
+
+                                                        const delta = lapTime - currentDriver.targetTime;
+                                                        const lapNumber = currentDriver.laps.length + 1;
+
+                                                        const newLap = {
+                                                            number: lapNumber,
+                                                            time: lapTime,
+                                                            delta: delta,
+                                                            lapType: 'changeover',
+                                                            lapValue: 1
+                                                        };
+
+                                                        currentDriver.laps.push(newLap);
+                                                        setTeams(updatedTeams);
+
+                                                        setChangeoverLapInfo({
+                                                            teamIndex: 0,
+                                                            driverIndex: activeDriver,
+                                                            lapIndex: currentDriver.laps.length - 1
+                                                        });
+                                                        setShowDriverSwitch(true);
+                                                    }}
+                                                    className="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg font-semibold transition-colors text-white flex items-center gap-2 mx-auto"
+                                                >
+                                                    <Repeat className="w-4 h-4" />
+                                                    Changeover
+                                                </button>
+                                            </div>
+                                        )}
                                         <div className={`text-xs ${statLabelClass}`}>
                                             Or type time manually to the right
                                         </div>
