@@ -116,7 +116,11 @@
             const startTimeRef = useRef(null);
             const intervalRef = useRef(null);
             const lastLapTimeRef = useRef(null);
-            const [isDarkMode, setIsDarkMode] = useState(true);
+            const [isDarkMode, setIsDarkMode] = useState(() => {
+                const saved = localStorage.getItem('darkMode');
+                if (saved !== null) return saved === 'true';
+                return window.matchMedia('(prefers-color-scheme: dark)').matches;
+            });
             const [showTeamScoring, setShowTeamScoring] = useState(false);
             const [showTeamSettings, setShowTeamSettings] = useState(false);
             const [showDriverSwitch, setShowDriverSwitch] = useState(false);
@@ -128,7 +132,6 @@
                 const savedTeams = localStorage.getItem('blindFreddyRaceTeams');
                 const savedActiveTeam = localStorage.getItem('blindFreddyActiveTeam');
                 const savedActiveDriver = localStorage.getItem('blindFreddyActiveDriver');
-                const savedTheme = localStorage.getItem('raceTimerTheme');
 
                 if (savedTeams) {
                     const parsedTeams = JSON.parse(savedTeams);
@@ -146,9 +149,6 @@
                 if (savedActiveDriver !== null) {
                     setActiveDriver(JSON.parse(savedActiveDriver));
                 }
-                if (savedTheme !== null) {
-                    setIsDarkMode(JSON.parse(savedTheme));
-                }
             }, []);
 
             // Save data to localStorage whenever it changes
@@ -160,7 +160,7 @@
 
             // Save theme to localStorage
             useEffect(() => {
-                localStorage.setItem('raceTimerTheme', JSON.stringify(isDarkMode));
+                localStorage.setItem('darkMode', isDarkMode.toString());
             }, [isDarkMode]);
 
             // Global keyboard handler for Enter key
