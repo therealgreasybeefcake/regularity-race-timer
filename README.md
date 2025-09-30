@@ -68,12 +68,38 @@ A comprehensive web-based race timing application designed for the Blind Freddy 
 
 ### Requirements
 - Modern web browser (Chrome, Firefox, Safari, Edge)
-- No server or installation required - runs entirely in the browser
+- Python 3 (for running as standalone app)
+
+### Installation Options
+
+#### Option 1: Open Directly in Browser
+- Open `race-timer.html` in your web browser
+- Works immediately, no setup required
+
+#### Option 2: Install as Standalone App (Recommended)
+1. **Start the local server:**
+   ```bash
+   python3 -m http.server 8000
+   ```
+
+2. **Open in Safari:**
+   - Navigate to `http://localhost:8000/race-timer.html`
+
+3. **Add to Dock:**
+   - In Safari: **File → Add to Dock**
+   - Creates a standalone app with the Blind Freddy logo
+   - Runs in its own window without browser UI
+   - Works offline after first load
+
+4. **Keep it running:**
+   - Leave the server running in the terminal
+   - Or restart with the same command when needed
 
 ### Usage
 
 1. **Open the Application**
-   - Open `race-timer.html` in your web browser
+   - Open `race-timer.html` in your browser, or
+   - Launch the app from your Dock (if installed)
    - The app loads with default driver settings
 
 2. **Start Timing**
