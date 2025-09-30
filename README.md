@@ -9,10 +9,10 @@ A comprehensive web-based race timing application designed for the Blind Freddy 
 - **Driver Tracking** - Shows current driver and lap number on the stopwatch
 - **Manual Entry** - Option to manually enter lap times
 - **Automatic Lap Classification** - Laps are automatically classified as:
-  - **Bonus Laps** (+2 points) - Within 0.99 seconds of target time
-  - **Base Laps** (+1 point) - Positive delta from target
-  - **Broken Laps** (0 points) - Negative delta from target
-  - **Changeover Laps** (+1 point) - Driver change laps
+  - **Bonus Laps** (+2 laps) - Within ±0.99 seconds of target time
+  - **Base Laps** (+1 lap) - Slower than target by >0.99 seconds
+  - **Broken Laps** (-1 lap) - Faster than target (breaking out)
+  - **Changeover Laps** (+1 lap) - Driver change laps (auto-detected >3 min gap)
 
 ### Driver Management
 - **Multiple Drivers** - Support for up to 4 drivers (Harry, Dave, Tom, Neil)
@@ -103,21 +103,107 @@ A comprehensive web-based race timing application designed for the Blind Freddy 
 
 ## Scoring Rules
 
+This application implements the official Blind Freddy Motor Racing Club scoring system as per the event regulations.
+
 ### Lap Classification
-- **Bonus Lap**: Delta within ±0.99 seconds of target (2 points)
-- **Base Lap**: Delta > +0.99 seconds from target (1 point)
-- **Broken Lap**: Delta < 0 seconds (negative delta) (0 points)
-- **Changeover Lap**: Driver change lap (1 point)
 
-### Goal Laps Formula
+Laps are automatically classified based on the delta (difference) from the driver's nominated target time:
+
+- **Bonus Lap**: Delta within ±0.99 seconds of target
+  - Awards: +2 laps (1 base + 1 bonus)
+  - Example: Target 105s, Lap time 104.5s (+0.5s delta) = Bonus
+
+- **Base Lap**: Delta > +0.99 seconds from target (slower than target)
+  - Awards: +1 lap
+  - Example: Target 105s, Lap time 107s (+2s delta) = Base
+
+- **Broken Lap**: Delta < 0 seconds (faster than target - "breaking out")
+  - Penalty: -1 lap
+  - Example: Target 105s, Lap time 103s (-2s delta) = Broken
+
+- **Changeover Lap**: Automatically detected when > 3 minutes between laps
+  - Awards: +1 lap
+  - Shown as ***** in delta column
+
+### Scoring Calculations
+
+#### Driver Achieved Laps
+The total laps achieved by a driver during the event:
+
 ```
-Driver Achieved Laps = Base + Bonus×2 + Changeover - Broken - Penalty
+Achieved Laps = Base Laps + (Bonus Laps × 2) + Changeover Laps - Broken Laps - Penalty Laps
+```
 
-Driver Goal Laps = ((Base + Changeover) × Team Percentage Factor) + Bonus - Broken - Penalty
+**Example:**
+- Base Laps: 75
+- Bonus Laps: 23 (counted as 23 × 2 = 46 in calculation)
+- Changeover Laps: 1
+- Broken Laps: 2
+- Penalty Laps: 0
+- **Achieved Laps: 75 + 46 + 1 - 2 - 0 = 120**
 
+#### Driver Goal Laps
+The theoretical maximum laps a driver could achieve based on their share of the event:
+
+```
+Driver % = (Driver Base + Changeover) / (Team Base + Changeover)
+
+Driver Goal Laps = ((Driver % × 36000 seconds) / Target Time in seconds) × 2
+
+OR equivalently:
+
+Driver Goal Laps = ((Base + Changeover) / Team Total) × Team Theoretical Max × 2
+```
+
+The multiplication by 2 accounts for bonus laps in the theoretical maximum.
+
+#### Team Goal Laps
+```
 Team Goal Laps = Sum of all Driver Goal Laps
+```
 
-Team Percentage Factor = (Total Achieved Laps / Total Goal Laps) × 100
+#### Team Achieved Laps
+```
+Team Achieved Laps = Sum of all Driver Achieved Laps
+```
+
+#### Percentage Factor (Winner Determination)
+```
+Percentage Factor = (Team Achieved Laps / Team Goal Laps) × 100
+```
+
+The team with the **highest Percentage Factor** wins the event.
+
+### Lap Value Reference
+
+| Lap Type | Display | Lap Value | Notes |
+|----------|---------|-----------|-------|
+| Bonus | Green | +2 | Within ±0.99s of target |
+| Base | Blue | +1 | Slower than target by >0.99s |
+| Changeover | Purple | +1 | Driver change (auto-detected) |
+| Broken | Red | -1 | Faster than target (penalty) |
+
+### Example Calculation
+
+**Driver A:**
+- Target Time: 1:42.00 (102 seconds)
+- Base Laps: 75
+- Bonus Laps: 23
+- Changeover Laps: 1
+- Broken Laps: 2
+- Penalty Laps: 0
+
+**Achieved Laps:**
+```
+75 + (23 × 2) + 1 - 2 - 0 = 75 + 46 + 1 - 2 = 120
+```
+
+**If Team Total Base+Changeover = 300 laps:**
+```
+Driver % = (75 + 1) / 300 = 25.33%
+Driver Share of Event = 25.33% × 36000 seconds = 9,120 seconds
+Theoretical Laps = 9,120 / 102 = 89.41 laps
+Goal Laps (with bonus factor) = 89.41 × 2 = 178.82
 ```
 
 ## Data Storage
