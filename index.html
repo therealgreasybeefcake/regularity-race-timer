@@ -561,6 +561,16 @@
                 return totalLapValue - driver.penaltyLaps;
             };
 
+            // Get driver's 3-lap rolling average delta (excluding changeover laps)
+            const getDriver3LapAverage = (driver) => {
+                const regularLaps = driver.laps.filter(lap => lap.lapType !== 'changeover');
+                if (regularLaps.length === 0) return null;
+
+                const lastThree = regularLaps.slice(-3);
+                const sum = lastThree.reduce((total, lap) => total + lap.delta, 0);
+                return sum / lastThree.length;
+            };
+
             // Get team's total base and changeover laps
             const getTeamBaseAndChangeoverLaps = (team) => {
                 return team.drivers.reduce((total, driver) => {
@@ -1778,6 +1788,23 @@
                                             <span className="font-bold text-red-400">{driver.penaltyLaps}</span>
                                         </div>
                                         <div className="flex justify-between pt-2 border-t border-gray-600">
+                                            <span className={statLabelClass}>3-Lap Avg Delta:</span>
+                                            <span className={`font-bold ${(() => {
+                                                const avg = getDriver3LapAverage(driver);
+                                                if (avg === null) return '';
+                                                if (avg < 0) return 'text-red-400';
+                                                if (avg >= 0 && avg < 0.5) return 'text-green-400';
+                                                if (avg >= 0.5 && avg < 1.0) return 'text-yellow-400';
+                                                return 'text-blue-400';
+                                            })()}`}>
+                                                {(() => {
+                                                    const avg = getDriver3LapAverage(driver);
+                                                    if (avg === null) return '-';
+                                                    return `${avg > 0 ? '+' : ''}${avg.toFixed(2)}s`;
+                                                })()}
+                                            </span>
+                                        </div>
+                                        <div className="flex justify-between">
                                             <span className={statLabelClass}>Goal Laps:</span>
                                             <span className="font-bold">{isNaN(calculateDriverGoalLaps(driver, team)) ? '-' : calculateDriverGoalLaps(driver, team).toFixed(2)}</span>
                                         </div>
