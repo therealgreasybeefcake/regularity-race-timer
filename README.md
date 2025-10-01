@@ -73,7 +73,7 @@ A comprehensive web-based race timing application designed for the Blind Freddy 
 ### Installation Options
 
 #### Option 1: Open Directly in Browser
-- Open `race-timer.html` in your web browser
+- Open `index.html` in your web browser
 - Works immediately, no setup required
 
 #### Option 2: Install as Standalone App (Recommended)
@@ -83,7 +83,7 @@ A comprehensive web-based race timing application designed for the Blind Freddy 
    ```
 
 2. **Open in Safari:**
-   - Navigate to `http://localhost:8000/race-timer.html`
+   - Navigate to `http://localhost:8000`
 
 3. **Add to Dock:**
    - In Safari: **File → Add to Dock**
@@ -98,7 +98,7 @@ A comprehensive web-based race timing application designed for the Blind Freddy 
 ### Usage
 
 1. **Open the Application**
-   - Open `race-timer.html` in your browser, or
+   - Open `index.html` in your browser, or
    - Launch the app from your Dock (if installed)
    - The app loads with default driver settings
 
@@ -257,9 +257,9 @@ All data is stored locally in the browser using localStorage:
 ### File Structure
 ```
 winton/
-├── race-timer.html          # Main application (single file)
-├── simulation-data.json     # Sample data (100 laps per driver)
-└── README.md               # This file
+├── index.html              # Main application (single file)
+├── simulation-data.json    # Sample data (100 laps per driver)
+└── README.md              # This file
 ```
 
 ## Tips & Best Practices

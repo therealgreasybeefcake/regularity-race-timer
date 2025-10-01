@@ -2,7 +2,7 @@
   "name": "Blind Freddy Race Timer",
   "short_name": "Race Timer",
   "description": "Race timing application for Blind Freddy team",
-  "start_url": "/race-timer.html",
+  "start_url": "/index.html",
   "display": "standalone",
   "background_color": "#1f2937",
   "theme_color": "#1e40af",
