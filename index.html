@@ -535,9 +535,9 @@
 
             // WINTON SCORING CALCULATIONS
 
-            // Get driver's base laps (excludes broken)
+            // Get driver's base laps (total laps run including all types)
             const getDriverBaseLaps = (driver) => {
-                return driver.laps.filter(lap => lap.lapType === 'base').length;
+                return driver.laps.length;
             };
 
             // Get driver's changeover laps
@@ -1792,15 +1792,20 @@
                                             <span className={`font-bold ${(() => {
                                                 const avg = getDriver3LapAverage(driver);
                                                 if (avg === null) return '';
-                                                if (avg < 0) return 'text-red-400';
-                                                if (avg >= 0 && avg < 0.5) return 'text-green-400';
-                                                if (avg >= 0.5 && avg < 1.0) return 'text-yellow-400';
-                                                return 'text-blue-400';
+                                                if (avg > 0) return 'text-red-400';
+                                                if (avg < 0) return 'text-blue-400';
+                                                return 'text-green-400';
                                             })()}`}>
                                                 {(() => {
                                                     const avg = getDriver3LapAverage(driver);
                                                     if (avg === null) return '-';
-                                                    return `${avg > 0 ? '+' : ''}${avg.toFixed(2)}s`;
+                                                    return (
+                                                        <React.Fragment>
+                                                            {`${avg > 0 ? '+' : ''}${avg.toFixed(2)}s`}
+                                                            {avg < 0 && <span className="ml-1">(Too Fast)</span>}
+                                                            {avg > 0 && <span className="ml-1">(Too Slow)</span>}
+                                                        </React.Fragment>
+                                                    );
                                                 })()}
                                             </span>
                                         </div>
@@ -1811,7 +1816,13 @@
                                         <div className="flex justify-between pt-2 border-t border-gray-600">
                                             <span className={statLabelClass}>Average Delta:</span>
                                             <span className={`font-bold ${avgDelta > 0 ? 'text-red-400' : avgDelta < 0 ? 'text-blue-400' : 'text-green-400'}`}>
-                                                {isNaN(avgDelta) ? '-' : `${avgDelta > 0 ? '+' : ''}${avgDelta.toFixed(2)}s`}
+                                                {isNaN(avgDelta) ? '-' : (
+                                                    <React.Fragment>
+                                                        {`${avgDelta > 0 ? '+' : ''}${avgDelta.toFixed(2)}s`}
+                                                        {avgDelta < 0 && <span className="ml-1">(Too Fast)</span>}
+                                                        {avgDelta > 0 && <span className="ml-1">(Too Slow)</span>}
+                                                    </React.Fragment>
+                                                )}
                                             </span>
                                         </div>
                                     </div>
@@ -1934,7 +1945,7 @@
                                         <div className="flex items-center gap-3">
                                             <div className="flex gap-6 text-right">
                                                 <div>
-                                                    <div className={`text-xs ${statLabelClass}`}>Total Laps</div>
+                                                    <div className={`text-xs ${statLabelClass}`}>Base Laps</div>
                                                     <div className="text-2xl font-bold">{driver.laps.length}</div>
                                                 </div>
                                                 <div>
