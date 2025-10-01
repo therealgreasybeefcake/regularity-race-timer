@@ -100,6 +100,12 @@
             </svg>
         );
 
+        const ChevronDown = ({ className }) => (
+            <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+        );
+
         function BlindFreddyRaceTimer() {
             // Team-based data structure
             const [teams, setTeams] = useState([
@@ -135,6 +141,7 @@
             const [showDriverSwitch, setShowDriverSwitch] = useState(false);
             const [changeoverLapInfo, setChangeoverLapInfo] = useState(null);
             const [showCharts, setShowCharts] = useState(false);
+            const [showClearDropdown, setShowClearDropdown] = useState(false);
 
             // Load data from localStorage on mount
             useEffect(() => {
@@ -165,6 +172,18 @@
             useEffect(() => {
                 localStorage.setItem('darkMode', isDarkMode.toString());
             }, [isDarkMode]);
+
+            // Close dropdown when clicking outside
+            useEffect(() => {
+                const handleClickOutside = (e) => {
+                    if (showClearDropdown && !e.target.closest('.relative')) {
+                        setShowClearDropdown(false);
+                    }
+                };
+
+                document.addEventListener('mousedown', handleClickOutside);
+                return () => document.removeEventListener('mousedown', handleClickOutside);
+            }, [showClearDropdown]);
 
             // Global keyboard handler for Enter key
             useEffect(() => {
@@ -242,11 +261,11 @@
                 // Changeover lap = 1
                 // Bonus lap = 2 (base lap + bonus lap credit)
                 // Base lap = 1
-                // Broken lap = 1 (lap completed, counts as 1 but no bonus opportunity)
+                // Broken lap = 0 (lap completed but doesn't count toward achieved laps)
                 if (lapType === 'changeover') return 1;
                 if (lapType === 'bonus') return 2;
                 if (lapType === 'base') return 1;
-                if (lapType === 'broken') return 1;
+                if (lapType === 'broken') return 0;
                 return 1;
             };
 
@@ -328,6 +347,21 @@
 
                     // Reset the stopwatch timer
                     resetStopwatch();
+                    setShowClearDropdown(false);
+                }
+            };
+
+            const clearAllDrivers = (teamIndex) => {
+                if (confirm('Are you sure you want to clear all laps for ALL drivers? This cannot be undone.')) {
+                    const updatedTeams = [...teams];
+                    updatedTeams[teamIndex].drivers.forEach(driver => {
+                        driver.laps = [];
+                    });
+                    setTeams(updatedTeams);
+
+                    // Reset the stopwatch timer
+                    resetStopwatch();
+                    setShowClearDropdown(false);
                 }
             };
 
@@ -1445,28 +1479,6 @@
                 alert('Report downloaded! Open the HTML file in your browser and use Print > Save as PDF to create a PDF.');
             };
 
-            const exportCSV = () => {
-                let csvContent = 'Team,Driver,Lap Number,Lap Time (s),Target Time (s),Delta (s),Lap Type,Lap Value\n';
-
-                teams.forEach(team => {
-                    team.drivers.forEach(driver => {
-                        driver.laps.forEach(lap => {
-                            const lapType = lap.lapType === 'bonus' ? 'Bonus' :
-                                          lap.lapType === 'base' ? 'Base' :
-                                          lap.lapType === 'changeover' ? 'Changeover' : 'Broken';
-                            csvContent += `"${team.name}","${driver.name}",${lap.number},${lap.time.toFixed(2)},${driver.targetTime.toFixed(2)},${lap.delta.toFixed(2)},${lapType},${lap.lapValue}\n`;
-                        });
-                    });
-                });
-
-                const csvBlob = new Blob([csvContent], { type: 'text/csv' });
-                const url = URL.createObjectURL(csvBlob);
-                const link = document.createElement('a');
-                link.href = url;
-                link.download = `${teams[activeTeam].name.replace(/\s+/g, '-')}-Race-Data-${new Date().toISOString().split('T')[0]}.csv`;
-                link.click();
-                URL.revokeObjectURL(url);
-            };
 
             const importData = (event) => {
                 const file = event.target.files[0];
@@ -1567,14 +1579,6 @@
                                     <FileText className="w-5 h-5" />
                                     <span>PDF</span>
                                 </button>
-                                <button
-                                    onClick={exportCSV}
-                                    className="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg font-semibold transition-colors flex items-center gap-2 text-white"
-                                    title="Export data as CSV"
-                                >
-                                    <Download className="w-5 h-5" />
-                                    <span>CSV</span>
-                                </button>
                                 <label className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg font-semibold transition-colors flex items-center gap-2 text-white cursor-pointer"
                                     title="Import data from JSON">
                                     <Upload className="w-5 h-5" />
@@ -1586,14 +1590,35 @@
                                         className="hidden"
                                     />
                                 </label>
-                                <button
-                                    onClick={clearAllData}
-                                    className="px-4 py-2 bg-orange-600 hover:bg-orange-700 rounded-lg font-semibold transition-colors flex items-center gap-2 text-white"
-                                    title="Clear all data"
-                                >
-                                    <RefreshCw className="w-5 h-5" />
-                                    <span>Clear</span>
-                                </button>
+                                <div className="relative">
+                                    <button
+                                        onClick={() => setShowClearDropdown(!showClearDropdown)}
+                                        className="px-4 py-2 bg-orange-600 hover:bg-orange-700 rounded-lg font-semibold transition-colors flex items-center gap-2 text-white"
+                                        title="Clear data"
+                                    >
+                                        <RefreshCw className="w-5 h-5" />
+                                        <span>Clear</span>
+                                        <ChevronDown className="w-4 h-4" />
+                                    </button>
+                                    {showClearDropdown && (
+                                        <div className={`absolute right-0 mt-2 w-56 rounded-lg shadow-lg ${cardBgClass} border ${isDarkMode ? 'border-gray-700' : 'border-gray-300'} z-50`}>
+                                            <button
+                                                onClick={() => clearDriverLaps(activeTeam, activeDriver)}
+                                                className={`w-full text-left px-4 py-3 ${hoverClass} transition-colors flex items-center gap-2 rounded-t-lg`}
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                                <span>Clear This Driver</span>
+                                            </button>
+                                            <button
+                                                onClick={() => clearAllDrivers(activeTeam)}
+                                                className={`w-full text-left px-4 py-3 ${hoverClass} transition-colors flex items-center gap-2 rounded-b-lg border-t ${isDarkMode ? 'border-gray-700' : 'border-gray-300'}`}
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                                <span>Clear All Drivers</span>
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
                                 <button
                                     onClick={() => setIsDarkMode(!isDarkMode)}
                                     className="px-4 py-2 bg-gray-600 hover:bg-gray-700 rounded-lg font-semibold transition-colors"
@@ -1880,17 +1905,15 @@
                                     <div className="flex justify-between items-center mb-3">
                                         <h2 className="text-lg font-bold">Lap History</h2>
                                         <div className="flex items-center gap-3">
-                                            <button
-                                                onClick={() => clearDriverLaps(0, activeDriver)}
-                                                className="px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white rounded font-semibold transition-colors flex items-center gap-1 text-sm"
-                                                title="Clear all laps for this driver"
-                                            >
-                                                <Trash2 className="w-4 h-4" />
-                                                <span>Clear</span>
-                                            </button>
-                                            <div className="text-right">
-                                                <div className={`text-xs ${statLabelClass}`}>Achieved Laps</div>
-                                                <div className="text-2xl font-bold text-yellow-600">{getDriverAchievedLaps(driver)}</div>
+                                            <div className="flex gap-6 text-right">
+                                                <div>
+                                                    <div className={`text-xs ${statLabelClass}`}>Total Laps</div>
+                                                    <div className="text-2xl font-bold">{driver.laps.length}</div>
+                                                </div>
+                                                <div>
+                                                    <div className={`text-xs ${statLabelClass}`}>Achieved Laps</div>
+                                                    <div className="text-2xl font-bold text-yellow-600">{getDriverAchievedLaps(driver)}</div>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
