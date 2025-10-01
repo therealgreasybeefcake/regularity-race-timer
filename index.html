@@ -240,13 +240,13 @@
 
             const calculateLapValue = (lapType) => {
                 // Changeover lap = 1
-                // Bonus lap = 2 (1 base + 1 bonus)
+                // Bonus lap = 2 (base lap + bonus lap credit)
                 // Base lap = 1
-                // Broken lap = 0 (wasted lap, actually subtracts)
+                // Broken lap = 1 (lap completed, counts as 1 but no bonus opportunity)
                 if (lapType === 'changeover') return 1;
                 if (lapType === 'bonus') return 2;
                 if (lapType === 'base') return 1;
-                if (lapType === 'broken') return 0;
+                if (lapType === 'broken') return 1;
                 return 1;
             };
 
@@ -521,13 +521,10 @@
                 return driver.laps.filter(lap => lap.lapType === 'broken').length;
             };
 
-            // Get driver's achieved laps (Base + Bonus + Changeover - Broken - Penalty)
+            // Get driver's achieved laps (sum of all lapValues - Penalty)
             const getDriverAchievedLaps = (driver) => {
-                const baseLaps = getDriverBaseLaps(driver);
-                const bonusLaps = getDriverBonusLaps(driver);
-                const changeoverLaps = getDriverChangeoverLaps(driver);
-                const brokenLaps = getDriverBrokenLaps(driver);
-                return baseLaps + (bonusLaps * 2) + changeoverLaps - brokenLaps - driver.penaltyLaps;
+                const totalLapValue = driver.laps.reduce((sum, lap) => sum + (lap.lapValue || 0), 0);
+                return totalLapValue - driver.penaltyLaps;
             };
 
             // Get team's total base and changeover laps
@@ -1958,7 +1955,7 @@
                                                                     ) : lap.lapType === 'changeover' ? (
                                                                         <span className="text-purple-400">+1</span>
                                                                     ) : (
-                                                                        <span className="text-red-400">-1</span>
+                                                                        <span className="text-red-400">0</span>
                                                                     )}
                                                                 </td>
                                                                 <td className="py-2 px-1 text-center">
