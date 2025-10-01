@@ -109,10 +109,10 @@
                     sessionNumber: '',
                     sessionNumber: '',
                     drivers: [
-                        { id: 1, name: 'Driver A', targetTime: 105, laps: [], penaltyLaps: 0 },
-                        { id: 2, name: 'Driver B', targetTime: 105, laps: [], penaltyLaps: 0 },
-                        { id: 3, name: 'Driver C', targetTime: 105, laps: [], penaltyLaps: 0 },
-                        { id: 4, name: 'Driver D', targetTime: 105, laps: [], penaltyLaps: 0 }
+                        { id: 1, name: 'Harry', targetTime: 105, laps: [], penaltyLaps: 0 },
+                        { id: 2, name: 'Dave', targetTime: 105, laps: [], penaltyLaps: 0 },
+                        { id: 3, name: 'Tom', targetTime: 105, laps: [], penaltyLaps: 0 },
+                        { id: 4, name: 'Neil', targetTime: 105, laps: [], penaltyLaps: 0 }
                     ]
                 }
             ]);
@@ -822,7 +822,7 @@
                 // Title
                 doc.setFontSize(20);
                 doc.setTextColor(30, 64, 175);
-                doc.text('Regularity Race Report', 20, 20);
+                doc.text(`${team.name} Race Report`, 20, 20);
 
                 doc.setFontSize(10);
                 doc.setTextColor(0, 0, 0);
@@ -944,11 +944,11 @@
                     doc.setPage(i);
                     doc.setFontSize(8);
                     doc.setTextColor(150, 150, 150);
-                    doc.text('Regularity Race Timer', 105, 285, { align: 'center' });
+                    doc.text(`${team.name} Race Timer`, 105, 285, { align: 'center' });
                     doc.text(`Page ${i} of ${pageCount}`, 105, 290, { align: 'center' });
                 }
 
-                doc.save(`Regularity-Race-Report-${new Date().toISOString().split('T')[0]}.pdf`);
+                doc.save(`${team.name.replace(/\s+/g, '-')}-Race-Report-${new Date().toISOString().split('T')[0]}.pdf`);
             };
 
             const generatePDFOld = () => {
@@ -1501,13 +1501,13 @@
                     const resetTeams = [
                         {
                             id: 1,
-                            name: 'Team 1',
+                            name: 'Blind Freddy',
                             sessionNumber: '',
                             drivers: [
-                                { id: 1, name: 'Driver A', targetTime: 105, laps: [], penaltyLaps: 0 },
-                                { id: 2, name: 'Driver B', targetTime: 105, laps: [], penaltyLaps: 0 },
-                                { id: 3, name: 'Driver C', targetTime: 105, laps: [], penaltyLaps: 0 },
-                                { id: 4, name: 'Driver D', targetTime: 105, laps: [], penaltyLaps: 0 }
+                                { id: 1, name: 'Harry', targetTime: 105, laps: [], penaltyLaps: 0 },
+                                { id: 2, name: 'Dave', targetTime: 105, laps: [], penaltyLaps: 0 },
+                                { id: 3, name: 'Tom', targetTime: 105, laps: [], penaltyLaps: 0 },
+                                { id: 4, name: 'Neil', targetTime: 105, laps: [], penaltyLaps: 0 }
                             ]
                         }
                     ];
