@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Blind Freddy Race Timer</title>
+    <title>Regularity Race Timer</title>
     <link rel="manifest" href="/manifest.json">
     <link rel="icon" type="image/png" href="/logo.png">
     <meta name="theme-color" content="#1e40af">
@@ -102,7 +102,7 @@
             const [teams, setTeams] = useState([
                 {
                     id: 1,
-                    name: 'Blind Freddy',
+                    name: 'Team 1',
                     sessionNumber: '',
                     sessionNumber: '',
                     drivers: [
@@ -141,12 +141,6 @@
 
                 if (savedTeams) {
                     const parsedTeams = JSON.parse(savedTeams);
-                    // Migration: fix "Team 1" to "Blind Freddy"
-                    parsedTeams.forEach(team => {
-                        if (team.name === 'Team 1') {
-                            team.name = 'Blind Freddy';
-                        }
-                    });
                     setTeams(parsedTeams);
                 }
                 if (savedActiveTeam !== null) {
@@ -825,7 +819,7 @@
                 // Title
                 doc.setFontSize(20);
                 doc.setTextColor(30, 64, 175);
-                doc.text('Blind Freddy Race Report', 20, 20);
+                doc.text('Regularity Race Report', 20, 20);
 
                 doc.setFontSize(10);
                 doc.setTextColor(0, 0, 0);
@@ -947,11 +941,11 @@
                     doc.setPage(i);
                     doc.setFontSize(8);
                     doc.setTextColor(150, 150, 150);
-                    doc.text('Blind Freddy Race Timer', 105, 285, { align: 'center' });
+                    doc.text('Regularity Race Timer', 105, 285, { align: 'center' });
                     doc.text(`Page ${i} of ${pageCount}`, 105, 290, { align: 'center' });
                 }
 
-                doc.save(`Blind-Freddy-Race-Report-${new Date().toISOString().split('T')[0]}.pdf`);
+                doc.save(`Regularity-Race-Report-${new Date().toISOString().split('T')[0]}.pdf`);
             };
 
             const generatePDFOld = () => {
@@ -965,7 +959,7 @@
                     <html>
                     <head>
                         <meta charset="utf-8">
-                        <title>Blind Freddy Race Report</title>
+                        <title>Regularity Race Report</title>
                         <style>
                             body { font-family: Arial, sans-serif; margin: 40px; color: #333; }
                             h1 { color: #1e40af; border-bottom: 3px solid #1e40af; padding-bottom: 10px; }
@@ -1504,7 +1498,7 @@
                     const resetTeams = [
                         {
                             id: 1,
-                            name: 'Blind Freddy',
+                            name: 'Team 1',
                             sessionNumber: '',
                             drivers: [
                                 { id: 1, name: 'Harry', targetTime: 105, laps: [], penaltyLaps: 0 },
@@ -1642,19 +1636,31 @@
                                     </button>
                                 ))}
                             </div>
-                            <div className="flex items-center gap-2">
-                                <label className={`text-sm font-semibold ${labelClass}`}>Session #:</label>
-                                <input
-                                    type="text"
-                                    value={team.sessionNumber || ''}
-                                    onChange={(e) => {
-                                        const updatedTeams = [...teams];
-                                        updatedTeams[0].sessionNumber = e.target.value;
-                                        setTeams(updatedTeams);
-                                    }}
-                                    placeholder="e.g., 1, 2, 3..."
-                                    className={`w-24 px-3 py-2 ${inputBgClass} rounded-lg border ${borderClass} focus:border-blue-500 focus:outline-none text-sm`}
-                                />
+                            <div className="flex items-center gap-4">
+                                <div className="flex items-center gap-2">
+                                    <label className={`text-sm font-semibold ${labelClass}`}>Team:</label>
+                                    <input
+                                        type="text"
+                                        value={team.name}
+                                        onChange={(e) => updateTeamName(0, e.target.value)}
+                                        placeholder="Team name"
+                                        className={`w-40 px-3 py-2 ${inputBgClass} rounded-lg border ${borderClass} focus:border-blue-500 focus:outline-none text-sm`}
+                                    />
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <label className={`text-sm font-semibold ${labelClass}`}>Session #:</label>
+                                    <input
+                                        type="text"
+                                        value={team.sessionNumber || ''}
+                                        onChange={(e) => {
+                                            const updatedTeams = [...teams];
+                                            updatedTeams[0].sessionNumber = e.target.value;
+                                            setTeams(updatedTeams);
+                                        }}
+                                        placeholder="e.g., 1, 2, 3..."
+                                        className={`w-24 px-3 py-2 ${inputBgClass} rounded-lg border ${borderClass} focus:border-blue-500 focus:outline-none text-sm`}
+                                    />
+                                </div>
                             </div>
                         </div>
 
