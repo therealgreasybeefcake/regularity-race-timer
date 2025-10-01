@@ -388,10 +388,22 @@
                 if (changeoverLapInfo) {
                     const { teamIndex, driverIndex, lapIndex } = changeoverLapInfo;
                     const updatedTeams = [...teams];
-                    const lap = updatedTeams[teamIndex].drivers[driverIndex].laps[lapIndex];
 
+                    // Remove the lap from the outgoing driver
+                    const lap = updatedTeams[teamIndex].drivers[driverIndex].laps.splice(lapIndex, 1)[0];
+
+                    // Add the lap to the incoming driver (selected in modal)
+                    const incomingDriver = updatedTeams[teamIndex].drivers[newDriverIndex];
+                    lap.number = incomingDriver.laps.length + 1;
                     lap.lapType = 'changeover';
                     lap.lapValue = 1;
+                    incomingDriver.laps.push(lap);
+
+                    // Renumber remaining laps for outgoing driver
+                    updatedTeams[teamIndex].drivers[driverIndex].laps.forEach((l, idx) => {
+                        l.number = idx + 1;
+                    });
+
                     setTeams(updatedTeams);
                     setActiveDriver(newDriverIndex);
                     setShowDriverSwitch(false);
@@ -607,9 +619,93 @@
             const generateChartImage = (driver, chartType) => {
                 return new Promise((resolve) => {
                     const canvas = document.createElement('canvas');
-                    canvas.width = 800;
-                    canvas.height = 320;
+                    canvas.width = 600;
+                    canvas.height = 240;
                     const ctx = canvas.getContext('2d');
+
+                    // Plugin to add white background
+                    const whiteBackgroundPlugin = {
+                        id: 'whiteBackground',
+                        beforeDraw: (chart) => {
+                            const ctx = chart.canvas.getContext('2d');
+                            ctx.save();
+                            ctx.globalCompositeOperation = 'destination-over';
+                            ctx.fillStyle = '#ffffff';
+                            ctx.fillRect(0, 0, chart.width, chart.height);
+                            ctx.restore();
+                        }
+                    };
+
+                    // Plugin to add colored zones for bonus/broken laps (for lap times chart)
+                    const coloredZonesPlugin = {
+                        id: 'coloredZones',
+                        beforeDatasetsDraw: (chart) => {
+                            const ctx = chart.canvas.getContext('2d');
+                            const chartArea = chart.chartArea;
+                            const yScale = chart.scales.y;
+
+                            if (!chartArea || !yScale) return;
+
+                            const targetTime = driver.targetTime;
+                            const bonusThreshold = targetTime + 0.99; // Bonus zone: target to target + 0.99s
+
+                            ctx.save();
+
+                            // Draw green zone (Bonus: target to target + 0.99s)
+                            const bonusTop = yScale.getPixelForValue(targetTime);
+                            const bonusBottom = yScale.getPixelForValue(bonusThreshold);
+                            ctx.fillStyle = 'rgba(34, 197, 94, 0.15)'; // Light green
+                            ctx.fillRect(chartArea.left, bonusTop, chartArea.right - chartArea.left, bonusBottom - bonusTop);
+
+                            // Draw blue zone (Base: target + 0.99s to max)
+                            const baseTop = yScale.getPixelForValue(bonusThreshold);
+                            const baseBottom = yScale.getPixelForValue(Math.max(...yScale.ticks.map(t => t.value)));
+                            ctx.fillStyle = 'rgba(59, 130, 246, 0.1)'; // Light blue
+                            ctx.fillRect(chartArea.left, baseTop, chartArea.right - chartArea.left, baseBottom - baseTop);
+
+                            // Draw red zone (Broken: below target)
+                            const brokenTop = yScale.getPixelForValue(Math.min(...yScale.ticks.map(t => t.value)));
+                            const brokenBottom = yScale.getPixelForValue(targetTime);
+                            ctx.fillStyle = 'rgba(239, 68, 68, 0.15)'; // Light red
+                            ctx.fillRect(chartArea.left, brokenBottom, chartArea.right - chartArea.left, brokenTop - brokenBottom);
+
+                            ctx.restore();
+                        }
+                    };
+
+                    // Plugin to add colored zones for delta chart
+                    const deltaZonesPlugin = {
+                        id: 'deltaZones',
+                        beforeDatasetsDraw: (chart) => {
+                            const ctx = chart.canvas.getContext('2d');
+                            const chartArea = chart.chartArea;
+                            const yScale = chart.scales.y;
+
+                            if (!chartArea || !yScale) return;
+
+                            ctx.save();
+
+                            // Draw green zone (Bonus: 0 to +0.99s delta)
+                            const bonusTop = yScale.getPixelForValue(0);
+                            const bonusBottom = yScale.getPixelForValue(0.99);
+                            ctx.fillStyle = 'rgba(34, 197, 94, 0.15)'; // Light green
+                            ctx.fillRect(chartArea.left, bonusTop, chartArea.right - chartArea.left, bonusBottom - bonusTop);
+
+                            // Draw blue zone (Base: +0.99s to max)
+                            const baseTop = yScale.getPixelForValue(0.99);
+                            const baseBottom = yScale.getPixelForValue(Math.max(...yScale.ticks.map(t => t.value)));
+                            ctx.fillStyle = 'rgba(59, 130, 246, 0.1)'; // Light blue
+                            ctx.fillRect(chartArea.left, baseTop, chartArea.right - chartArea.left, baseBottom - baseTop);
+
+                            // Draw red zone (Broken: negative delta)
+                            const brokenTop = yScale.getPixelForValue(Math.min(...yScale.ticks.map(t => t.value)));
+                            const brokenBottom = yScale.getPixelForValue(0);
+                            ctx.fillStyle = 'rgba(239, 68, 68, 0.15)'; // Light red
+                            ctx.fillRect(chartArea.left, brokenBottom, chartArea.right - chartArea.left, brokenTop - brokenBottom);
+
+                            ctx.restore();
+                        }
+                    };
 
                     if (chartType === 'lapTimes') {
                         const lapTimes = driver.laps.map(lap => lap.time);
@@ -658,7 +754,8 @@
                                         title: { display: true, text: 'Time (s)' }
                                     }
                                 }
-                            }
+                            },
+                            plugins: [whiteBackgroundPlugin, coloredZonesPlugin]
                         });
                     } else if (chartType === 'delta') {
                         const nonChangeoverLaps = driver.laps.filter(lap => lap.lapType !== 'changeover');
@@ -705,12 +802,13 @@
                                         title: { display: true, text: 'Delta (s)' }
                                     }
                                 }
-                            }
+                            },
+                            plugins: [whiteBackgroundPlugin, deltaZonesPlugin]
                         });
                     }
 
                     setTimeout(() => {
-                        resolve(canvas.toDataURL('image/png'));
+                        resolve(canvas.toDataURL('image/jpeg', 0.7));
                     }, 100);
                 });
             };
@@ -831,7 +929,7 @@
                         doc.text(`${driver.name} - Lap Times Over Time`, 20, 20);
 
                         const lapTimesImg = await generateChartImage(driver, 'lapTimes');
-                        doc.addImage(lapTimesImg, 'PNG', 15, 30, 180, 72);
+                        doc.addImage(lapTimesImg, 'JPEG', 15, 30, 180, 72);
 
                         // Delta Chart
                         doc.setFontSize(14);
@@ -839,7 +937,7 @@
                         doc.text(`${driver.name} - Delta from Target`, 20, 115);
 
                         const deltaImg = await generateChartImage(driver, 'delta');
-                        doc.addImage(deltaImg, 'PNG', 15, 125, 180, 72);
+                        doc.addImage(deltaImg, 'JPEG', 15, 125, 180, 72);
                     }
                 }
 
@@ -1088,7 +1186,7 @@
                 let yPos = 28;
                 doc.text(`Team: Blind Freddy`, 20, yPos);
                 yPos += 6;
-                if (currentTeam.sessionNumber) {
+                if (currentTeam.sessionNumber && currentTeam.sessionNumber.trim() !== '') {
                     doc.text(`Session #: ${currentTeam.sessionNumber}`, 20, yPos);
                     yPos += 6;
                 }
@@ -1128,7 +1226,7 @@
                     `${driver.targetTime.toFixed(2)}s`,
                     lap.lapType === 'changeover' ? '*****' : `${lap.delta > 0 ? '+' : ''}${lap.delta.toFixed(2)}s`,
                     lap.lapType === 'bonus' ? 'Bonus (+2)' :
-                    lap.lapType === 'broken' ? 'Broken (0)' :
+                    lap.lapType === 'broken' ? 'Broken (-1)' :
                     lap.lapType === 'changeover' ? 'Changeover (+1)' : 'Base (+1)'
                 ]);
 
@@ -1139,7 +1237,22 @@
                         body: lapData,
                         theme: 'striped',
                         headStyles: { fillColor: [30, 64, 175] },
-                        styles: { fontSize: 9 }
+                        styles: { fontSize: 9 },
+                        didParseCell: function(data) {
+                            // Color the Type column (column 4) based on lap type
+                            if (data.column.index === 4 && data.section === 'body') {
+                                const lapType = driver.laps[data.row.index].lapType;
+                                if (lapType === 'broken') {
+                                    data.cell.styles.textColor = [239, 68, 68]; // Red
+                                } else if (lapType === 'bonus') {
+                                    data.cell.styles.textColor = [34, 197, 94]; // Green
+                                } else if (lapType === 'base') {
+                                    data.cell.styles.textColor = [59, 130, 246]; // Blue
+                                } else if (lapType === 'changeover') {
+                                    data.cell.styles.textColor = [168, 85, 247]; // Purple
+                                }
+                            }
+                        }
                     });
 
                     // Add charts page
@@ -1151,7 +1264,7 @@
                     doc.text('Lap Times Over Time', 20, 20);
 
                     const lapTimesImg = await generateChartImage(driver, 'lapTimes');
-                    doc.addImage(lapTimesImg, 'PNG', 15, 30, 180, 72);
+                    doc.addImage(lapTimesImg, 'JPEG', 15, 30, 180, 72);
 
                     // Add Delta Chart
                     doc.setFontSize(16);
@@ -1159,7 +1272,7 @@
                     doc.text('Delta from Target', 20, 115);
 
                     const deltaImg = await generateChartImage(driver, 'delta');
-                    doc.addImage(deltaImg, 'PNG', 15, 125, 180, 72);
+                    doc.addImage(deltaImg, 'JPEG', 15, 125, 180, 72);
                 } else {
                     doc.setFontSize(10);
                     doc.setTextColor(100, 100, 100);
@@ -1173,7 +1286,7 @@
                     doc.setFontSize(8);
                     doc.setTextColor(150, 150, 150);
                     doc.text(`${driver.name} - ${currentTeam.name}`, 105, 285, { align: 'center' });
-                    doc.text(`Blind Freddy Scoring: Bonus (+0.99s) = 2 laps | Base (>+0.99s) = 1 lap | Broken (<0s) = 0 laps`, 105, 290, { align: 'center' });
+                    doc.text(`Blind Freddy Scoring: Bonus (+0.99s) = 2 laps | Base (>+0.99s) = 1 lap | Broken (<0s) = -1 lap`, 105, 290, { align: 'center' });
                 }
 
                 doc.save(`${driver.name.replace(/\s+/g, '-')}-Report-${new Date().toISOString().split('T')[0]}.pdf`);
@@ -1797,6 +1910,14 @@
                                                 ) : (
                                                     [...driver.laps].reverse().map((lap, idx) => {
                                                         const originalIdx = driver.laps.length - 1 - idx;
+
+                                                        // Hide changeover lap if it's pending transfer
+                                                        if (showDriverSwitch && changeoverLapInfo &&
+                                                            changeoverLapInfo.driverIndex === activeDriver &&
+                                                            changeoverLapInfo.lapIndex === originalIdx) {
+                                                            return null;
+                                                        }
+
                                                         return (
                                                             <tr key={originalIdx} className={`border-b ${isDarkMode ? 'border-gray-700' : 'border-gray-300'} ${hoverClass}`}>
                                                                 <td className="py-2 px-2 font-bold">#{lap.number}</td>
@@ -2067,6 +2188,43 @@
                 const intercept = (sumY - slope * sumX) / n;
                 const trendLine = lapTimes.map((_, i) => slope * i + intercept);
 
+                // Plugin to add colored zones for lap times
+                const coloredZonesPlugin = {
+                    id: 'coloredZonesModal',
+                    beforeDatasetsDraw: (chart) => {
+                        const ctx = chart.canvas.getContext('2d');
+                        const chartArea = chart.chartArea;
+                        const yScale = chart.scales.y;
+
+                        if (!chartArea || !yScale) return;
+
+                        const targetTime = driver.targetTime;
+                        const bonusThreshold = targetTime + 0.99;
+
+                        ctx.save();
+
+                        // Draw green zone (Bonus: target to target + 0.99s)
+                        const bonusTop = yScale.getPixelForValue(targetTime);
+                        const bonusBottom = yScale.getPixelForValue(bonusThreshold);
+                        ctx.fillStyle = 'rgba(34, 197, 94, 0.15)';
+                        ctx.fillRect(chartArea.left, bonusTop, chartArea.right - chartArea.left, bonusBottom - bonusTop);
+
+                        // Draw blue zone (Base: target + 0.99s to max)
+                        const baseTop = yScale.getPixelForValue(bonusThreshold);
+                        const baseBottom = yScale.getPixelForValue(Math.max(...yScale.ticks.map(t => t.value)));
+                        ctx.fillStyle = 'rgba(59, 130, 246, 0.1)';
+                        ctx.fillRect(chartArea.left, baseTop, chartArea.right - chartArea.left, baseBottom - baseTop);
+
+                        // Draw red zone (Broken: below target)
+                        const brokenTop = yScale.getPixelForValue(Math.min(...yScale.ticks.map(t => t.value)));
+                        const brokenBottom = yScale.getPixelForValue(targetTime);
+                        ctx.fillStyle = 'rgba(239, 68, 68, 0.15)';
+                        ctx.fillRect(chartArea.left, brokenBottom, chartArea.right - chartArea.left, brokenTop - brokenBottom);
+
+                        ctx.restore();
+                    }
+                };
+
                 chartRef.current = new Chart(ctx, {
                     type: 'line',
                     data: {
@@ -2125,7 +2283,8 @@
                                 }
                             }
                         }
-                    }
+                    },
+                    plugins: [coloredZonesPlugin]
                 });
 
                 return () => {
@@ -2171,6 +2330,40 @@
                 const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
                 const intercept = (sumY - slope * sumX) / n;
                 const trendLine = deltas.map((_, i) => slope * i + intercept);
+
+                // Plugin to add colored zones for delta chart
+                const deltaZonesPlugin = {
+                    id: 'deltaZonesModal',
+                    beforeDatasetsDraw: (chart) => {
+                        const ctx = chart.canvas.getContext('2d');
+                        const chartArea = chart.chartArea;
+                        const yScale = chart.scales.y;
+
+                        if (!chartArea || !yScale) return;
+
+                        ctx.save();
+
+                        // Draw green zone (Bonus: 0 to +0.99s delta)
+                        const bonusTop = yScale.getPixelForValue(0);
+                        const bonusBottom = yScale.getPixelForValue(0.99);
+                        ctx.fillStyle = 'rgba(34, 197, 94, 0.15)';
+                        ctx.fillRect(chartArea.left, bonusTop, chartArea.right - chartArea.left, bonusBottom - bonusTop);
+
+                        // Draw blue zone (Base: +0.99s to max)
+                        const baseTop = yScale.getPixelForValue(0.99);
+                        const baseBottom = yScale.getPixelForValue(Math.max(...yScale.ticks.map(t => t.value)));
+                        ctx.fillStyle = 'rgba(59, 130, 246, 0.1)';
+                        ctx.fillRect(chartArea.left, baseTop, chartArea.right - chartArea.left, baseBottom - baseTop);
+
+                        // Draw red zone (Broken: negative delta)
+                        const brokenTop = yScale.getPixelForValue(Math.min(...yScale.ticks.map(t => t.value)));
+                        const brokenBottom = yScale.getPixelForValue(0);
+                        ctx.fillStyle = 'rgba(239, 68, 68, 0.15)';
+                        ctx.fillRect(chartArea.left, brokenBottom, chartArea.right - chartArea.left, brokenTop - brokenBottom);
+
+                        ctx.restore();
+                    }
+                };
 
                 chartRef.current = new Chart(ctx, {
                     type: 'bar',
@@ -2233,7 +2426,8 @@
                                 }
                             }
                         }
-                    }
+                    },
+                    plugins: [deltaZonesPlugin]
                 });
 
                 return () => {
