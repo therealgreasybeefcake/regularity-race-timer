@@ -5,7 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Regularity Race Timer</title>
     <link rel="manifest" href="/manifest.json">
-    <link rel="icon" type="image/png" href="/logo.png">
+    <link rel="icon" type="image/png" sizes="48x48" href="favicon.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
+    <link rel="shortcut icon" href="favicon.png">
     <meta name="theme-color" content="#1e40af">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -102,14 +105,14 @@
             const [teams, setTeams] = useState([
                 {
                     id: 1,
-                    name: 'Team 1',
+                    name: 'Blind Freddy',
                     sessionNumber: '',
                     sessionNumber: '',
                     drivers: [
-                        { id: 1, name: 'Harry', targetTime: 105, laps: [], penaltyLaps: 0 },
-                        { id: 2, name: 'Dave', targetTime: 105, laps: [], penaltyLaps: 0 },
-                        { id: 3, name: 'Tom', targetTime: 105, laps: [], penaltyLaps: 0 },
-                        { id: 4, name: 'Neil', targetTime: 105, laps: [], penaltyLaps: 0 }
+                        { id: 1, name: 'Driver A', targetTime: 105, laps: [], penaltyLaps: 0 },
+                        { id: 2, name: 'Driver B', targetTime: 105, laps: [], penaltyLaps: 0 },
+                        { id: 3, name: 'Driver C', targetTime: 105, laps: [], penaltyLaps: 0 },
+                        { id: 4, name: 'Driver D', targetTime: 105, laps: [], penaltyLaps: 0 }
                     ]
                 }
             ]);
@@ -982,7 +985,7 @@
                         </style>
                     </head>
                     <body>
-                        <h1>🏁 Blind Freddy Race Report</h1>
+                        <h1>🏁 ${currentTeam.name} Race Report</h1>
                         <p><strong>Generated:</strong> ${new Date().toLocaleString()}</p>
 
                         <div class="team-summary">
@@ -1141,8 +1144,8 @@
 
                 htmlContent += `
                         <div class="footer">
-                            <p>Blind Freddy Race Timer Report - ${currentTeam.name}</p>
-                            <p>Blind Freddy Scoring System: Bonus (+0.99s) = 2 laps | Base (>+0.99s) = 1 lap | Broken (<0s) = 0 laps</p>
+                            <p>${currentTeam.name} Race Timer Report</p>
+                            <p>${currentTeam.name} Scoring System: Bonus (+0.99s) = 2 laps | Base (>+0.99s) = 1 lap | Broken (<0s) = 0 laps</p>
                         </div>
                     </body>
                     </html>
@@ -1152,7 +1155,7 @@
                 const url = URL.createObjectURL(blob);
                 const link = document.createElement('a');
                 link.href = url;
-                link.download = `blind-freddy-race-report-${currentTeam.name.replace(/\s+/g, '-')}-${new Date().toISOString().split('T')[0]}.html`;
+                link.download = `${currentTeam.name.replace(/\s+/g, '-')}-race-report-${new Date().toISOString().split('T')[0]}.html`;
                 link.click();
                 URL.revokeObjectURL(url);
 
@@ -1178,7 +1181,7 @@
                 doc.setFontSize(10);
                 doc.setTextColor(0, 0, 0);
                 let yPos = 28;
-                doc.text(`Team: Blind Freddy`, 20, yPos);
+                doc.text(`Team: ${currentTeam.name}`, 20, yPos);
                 yPos += 6;
                 if (currentTeam.sessionNumber && currentTeam.sessionNumber.trim() !== '') {
                     doc.text(`Session #: ${currentTeam.sessionNumber}`, 20, yPos);
@@ -1280,7 +1283,7 @@
                     doc.setFontSize(8);
                     doc.setTextColor(150, 150, 150);
                     doc.text(`${driver.name} - ${currentTeam.name}`, 105, 285, { align: 'center' });
-                    doc.text(`Blind Freddy Scoring: Bonus (+0.99s) = 2 laps | Base (>+0.99s) = 1 lap | Broken (<0s) = -1 lap`, 105, 290, { align: 'center' });
+                    doc.text(`${currentTeam.name} Scoring: Bonus (+0.99s) = 2 laps | Base (>+0.99s) = 1 lap | Broken (<0s) = -1 lap`, 105, 290, { align: 'center' });
                 }
 
                 doc.save(`${driver.name.replace(/\s+/g, '-')}-Report-${new Date().toISOString().split('T')[0]}.pdf`);
@@ -1428,7 +1431,7 @@
 
                         <div class="footer">
                             <p>${driver.name} - ${currentTeam.name}</p>
-                            <p>Blind Freddy Scoring System: Bonus (+0.99s) = 2 laps | Base (>+0.99s) = 1 lap | Broken (<0s) = 0 laps</p>
+                            <p>${currentTeam.name} Scoring System: Bonus (+0.99s) = 2 laps | Base (>+0.99s) = 1 lap | Broken (<0s) = 0 laps</p>
                         </div>
                     </body>
                     </html>
@@ -1463,7 +1466,7 @@
                 const url = URL.createObjectURL(csvBlob);
                 const link = document.createElement('a');
                 link.href = url;
-                link.download = `Blind-Freddy-Race-Data-${new Date().toISOString().split('T')[0]}.csv`;
+                link.download = `${teams[activeTeam].name.replace(/\s+/g, '-')}-Race-Data-${new Date().toISOString().split('T')[0]}.csv`;
                 link.click();
                 URL.revokeObjectURL(url);
             };
@@ -1501,10 +1504,10 @@
                             name: 'Team 1',
                             sessionNumber: '',
                             drivers: [
-                                { id: 1, name: 'Harry', targetTime: 105, laps: [], penaltyLaps: 0 },
-                                { id: 2, name: 'Dave', targetTime: 105, laps: [], penaltyLaps: 0 },
-                                { id: 3, name: 'Tom', targetTime: 105, laps: [], penaltyLaps: 0 },
-                                { id: 4, name: 'Neil', targetTime: 105, laps: [], penaltyLaps: 0 }
+                                { id: 1, name: 'Driver A', targetTime: 105, laps: [], penaltyLaps: 0 },
+                                { id: 2, name: 'Driver B', targetTime: 105, laps: [], penaltyLaps: 0 },
+                                { id: 3, name: 'Driver C', targetTime: 105, laps: [], penaltyLaps: 0 },
+                                { id: 4, name: 'Driver D', targetTime: 105, laps: [], penaltyLaps: 0 }
                             ]
                         }
                     ];
@@ -1540,7 +1543,7 @@
                         <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
                             <div className="flex items-center gap-3">
                                 <Flag className="w-8 h-8 text-yellow-400" />
-                                <h1 className="text-3xl font-bold">Blind Freddy Race Timer</h1>
+                                <h1 className="text-3xl font-bold">{teams[activeTeam].name} Race Timer</h1>
                             </div>
                             <div className="flex gap-2 flex-wrap">
                                 <button

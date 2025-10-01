@@ -1,6 +1,6 @@
-# Blind Freddy Race Timer
+# Regularity Race Timer
 
-A comprehensive web-based race timing application designed for the Blind Freddy racing team. Track lap times, driver performance, and generate detailed reports for multi-driver endurance racing.
+A comprehensive web-based race timing application designed for the racing teams. Track lap times, driver performance, and generate detailed reports for multi-driver endurance racing.
 
 ## Features
 
