@@ -142,6 +142,7 @@
             const [changeoverLapInfo, setChangeoverLapInfo] = useState(null);
             const [showCharts, setShowCharts] = useState(false);
             const [showClearDropdown, setShowClearDropdown] = useState(false);
+            const [contextMenu, setContextMenu] = useState({ visible: false, x: 0, y: 0, teamIndex: null, driverIndex: null, lapIndex: null });
 
             // Load data from localStorage on mount
             useEffect(() => {
@@ -184,6 +185,30 @@
                 document.addEventListener('mousedown', handleClickOutside);
                 return () => document.removeEventListener('mousedown', handleClickOutside);
             }, [showClearDropdown]);
+
+            // Close context menu when clicking anywhere or pressing Escape
+            useEffect(() => {
+                const handleCloseContextMenu = (e) => {
+                    if (contextMenu.visible) {
+                        setContextMenu({ visible: false, x: 0, y: 0, teamIndex: null, driverIndex: null, lapIndex: null });
+                    }
+                };
+
+                const handleEscape = (e) => {
+                    if (e.key === 'Escape' && contextMenu.visible) {
+                        setContextMenu({ visible: false, x: 0, y: 0, teamIndex: null, driverIndex: null, lapIndex: null });
+                    }
+                };
+
+                if (contextMenu.visible) {
+                    document.addEventListener('click', handleCloseContextMenu);
+                    document.addEventListener('keydown', handleEscape);
+                    return () => {
+                        document.removeEventListener('click', handleCloseContextMenu);
+                        document.removeEventListener('keydown', handleEscape);
+                    };
+                }
+            }, [contextMenu.visible]);
 
             // Global keyboard handler for Enter key
             useEffect(() => {
@@ -569,6 +594,27 @@
                 const lastThree = regularLaps.slice(-3);
                 const sum = lastThree.reduce((total, lap) => total + lap.delta, 0);
                 return sum / lastThree.length;
+            };
+
+            // Get 3-lap average at a specific lap index (for historical signal display)
+            const get3LapAverageAtIndex = (driver, lapIndex) => {
+                const regularLaps = driver.laps
+                    .slice(0, lapIndex + 1)
+                    .filter(lap => lap.lapType !== 'changeover');
+
+                if (regularLaps.length === 0) return null;
+
+                const lastThree = regularLaps.slice(-3);
+                const sum = lastThree.reduce((total, lap) => total + lap.delta, 0);
+                return sum / lastThree.length;
+            };
+
+            // Get signal color based on 3-lap average
+            const getSignalColor = (avg) => {
+                if (avg === null) return null;
+                if (avg >= 0 && avg < 1.0) return 'bg-green-500';  // Bonus lap territory (0-0.99)
+                if (avg < 0) return 'bg-red-500';  // Too fast - need to slow down
+                return 'bg-blue-500';  // Too slow (>=1.0)
             };
 
             // Get team's total base and changeover laps
@@ -1789,25 +1835,44 @@
                                         </div>
                                         <div className="flex justify-between pt-2 border-t border-gray-600">
                                             <span className={statLabelClass}>3-Lap Avg Delta:</span>
-                                            <span className={`font-bold ${(() => {
-                                                const avg = getDriver3LapAverage(driver);
-                                                if (avg === null) return '';
-                                                if (avg > 0) return 'text-red-400';
-                                                if (avg < 0) return 'text-blue-400';
-                                                return 'text-green-400';
-                                            })()}`}>
+                                            <div className="flex items-center gap-2">
                                                 {(() => {
                                                     const avg = getDriver3LapAverage(driver);
-                                                    if (avg === null) return '-';
-                                                    return (
-                                                        <React.Fragment>
-                                                            {`${avg > 0 ? '+' : ''}${avg.toFixed(2)}s`}
-                                                            {avg < 0 && <span className="ml-1">(Too Fast)</span>}
-                                                            {avg > 0 && <span className="ml-1">(Too Slow)</span>}
-                                                        </React.Fragment>
-                                                    );
+                                                    if (avg === null) return null;
+
+                                                    // Determine signal color: Green (0-1s bonus territory), Red (negative - too fast), Blue (>1s - too slow)
+                                                    let signalColor;
+                                                    if (avg >= 0 && avg < 1.0) {
+                                                        signalColor = 'bg-green-500';
+                                                    } else if (avg < 0) {
+                                                        signalColor = 'bg-red-500';
+                                                    } else {
+                                                        signalColor = 'bg-blue-500';
+                                                    }
+
+                                                    return <div className={`w-3 h-3 rounded-full ${signalColor}`} title="Signal indicator"></div>;
                                                 })()}
-                                            </span>
+                                                <span className={`font-bold ${(() => {
+                                                    const avg = getDriver3LapAverage(driver);
+                                                    if (avg === null) return '';
+                                                    if (avg >= 0 && avg < 1.0) return 'text-green-400';
+                                                    if (avg < 0) return 'text-red-400';
+                                                    return 'text-blue-400';
+                                                })()}`}>
+                                                    {(() => {
+                                                        const avg = getDriver3LapAverage(driver);
+                                                        if (avg === null) return '-';
+                                                        return (
+                                                            <React.Fragment>
+                                                                {`${avg > 0 ? '+' : ''}${avg.toFixed(2)}s`}
+                                                                {avg < 0 && <span className="ml-1">(Too Fast)</span>}
+                                                                {avg >= 0 && avg < 1.0 && <span className="ml-1">(Good)</span>}
+                                                                {avg >= 1.0 && <span className="ml-1">(Too Slow)</span>}
+                                                            </React.Fragment>
+                                                        );
+                                                    })()}
+                                                </span>
+                                            </div>
                                         </div>
                                         <div className="flex justify-between">
                                             <span className={statLabelClass}>Goal Laps:</span>
@@ -1815,12 +1880,17 @@
                                         </div>
                                         <div className="flex justify-between pt-2 border-t border-gray-600">
                                             <span className={statLabelClass}>Average Delta:</span>
-                                            <span className={`font-bold ${avgDelta > 0 ? 'text-red-400' : avgDelta < 0 ? 'text-blue-400' : 'text-green-400'}`}>
+                                            <span className={`font-bold ${
+                                                avgDelta >= 0 && avgDelta < 1.0 ? 'text-green-400' :
+                                                avgDelta < 0 ? 'text-red-400' :
+                                                'text-blue-400'
+                                            }`}>
                                                 {isNaN(avgDelta) ? '-' : (
                                                     <React.Fragment>
                                                         {`${avgDelta > 0 ? '+' : ''}${avgDelta.toFixed(2)}s`}
                                                         {avgDelta < 0 && <span className="ml-1">(Too Fast)</span>}
-                                                        {avgDelta > 0 && <span className="ml-1">(Too Slow)</span>}
+                                                        {avgDelta >= 0 && avgDelta < 1.0 && <span className="ml-1">(Good)</span>}
+                                                        {avgDelta >= 1.0 && <span className="ml-1">(Too Slow)</span>}
                                                     </React.Fragment>
                                                 )}
                                             </span>
@@ -1960,19 +2030,18 @@
                                         <table className="w-full text-sm table-fixed">
                                             <thead className={`sticky top-0 ${cardBgClass}`}>
                                                 <tr className={`border-b ${isDarkMode ? 'border-gray-700' : 'border-gray-300'}`}>
-                                                    <th className="text-left py-2 px-2 w-12">Lap</th>
+                                                    <th className="text-left py-2 px-2 w-14">Lap</th>
                                                     <th className="text-left py-2 px-2 w-16">Time</th>
                                                     <th className="text-left py-2 px-2 w-20">Delta</th>
-                                                    <th className="text-left py-2 px-2">Type</th>
-                                                    <th className="text-center py-2 px-2 w-14">Laps</th>
-                                                    <th className="text-center py-2 px-1 w-8"></th>
-                                                    <th className="text-center py-2 px-1 w-8"></th>
+                                                    <th className="text-left py-2 px-2 w-16">Type</th>
+                                                    <th className="text-center py-2 px-2 w-12">Laps</th>
+                                                    <th className="text-center py-2 px-2 w-10" title="Signal indicator based on 3-lap average">🚦</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
                                                 {driver.laps.length === 0 ? (
                                                     <tr>
-                                                        <td colSpan="7" className={`text-center py-8 ${statLabelClass} text-sm`}>No laps recorded yet</td>
+                                                        <td colSpan="6" className={`text-center py-8 ${statLabelClass} text-sm`}>No laps recorded yet</td>
                                                     </tr>
                                                 ) : (
                                                     [...driver.laps].reverse().map((lap, idx) => {
@@ -1986,7 +2055,21 @@
                                                         }
 
                                                         return (
-                                                            <tr key={originalIdx} className={`border-b ${isDarkMode ? 'border-gray-700' : 'border-gray-300'} ${hoverClass}`}>
+                                                            <tr
+                                                                key={originalIdx}
+                                                                className={`border-b ${isDarkMode ? 'border-gray-700' : 'border-gray-300'} ${hoverClass} cursor-context-menu`}
+                                                                onContextMenu={(e) => {
+                                                                    e.preventDefault();
+                                                                    setContextMenu({
+                                                                        visible: true,
+                                                                        x: e.pageX,
+                                                                        y: e.pageY,
+                                                                        teamIndex: 0,
+                                                                        driverIndex: activeDriver,
+                                                                        lapIndex: originalIdx
+                                                                    });
+                                                                }}
+                                                            >
                                                                 <td className="py-2 px-2 font-bold">#{lap.number}</td>
                                                                 <td className="py-2 px-2">{lap.time.toFixed(2)}s</td>
                                                                 <td className={`py-2 px-2 font-bold ${
@@ -2019,22 +2102,13 @@
                                                                         <span className="text-red-400">0</span>
                                                                     )}
                                                                 </td>
-                                                                <td className="py-2 px-1 text-center">
-                                                                    <button
-                                                                        onClick={() => toggleChangeoverLap(0, activeDriver, originalIdx)}
-                                                                        className={`${lap.lapType === 'changeover' ? 'text-purple-400' : 'text-gray-400'} hover:text-purple-300 transition-colors`}
-                                                                        title={lap.lapType === 'changeover' ? 'Remove changeover mark' : 'Mark as changeover'}
-                                                                    >
-                                                                        <Repeat className="w-3 h-3" />
-                                                                    </button>
-                                                                </td>
-                                                                <td className="py-2 px-1 text-center">
-                                                                    <button
-                                                                        onClick={() => removeLap(0, activeDriver, originalIdx)}
-                                                                        className="text-red-400 hover:text-red-300 transition-colors"
-                                                                    >
-                                                                        <Trash2 className="w-3 h-3" />
-                                                                    </button>
+                                                                <td className="py-2 px-2 text-center">
+                                                                    {(() => {
+                                                                        const avg = get3LapAverageAtIndex(driver, originalIdx);
+                                                                        const signalColor = getSignalColor(avg);
+                                                                        if (!signalColor) return null;
+                                                                        return <div className={`w-3 h-3 rounded-full ${signalColor} mx-auto`} title={`3-lap avg: ${avg.toFixed(2)}s`}></div>;
+                                                                    })()}
                                                                 </td>
                                                             </tr>
                                                         );
@@ -2221,6 +2295,40 @@
                                     </div>
                                 </div>
                             </div>
+                        </div>
+                    )}
+
+                    {/* Context Menu */}
+                    {contextMenu.visible && (
+                        <div
+                            className={`fixed ${cardBgClass} border ${borderClass} rounded-lg shadow-xl py-1 z-50`}
+                            style={{
+                                left: `${contextMenu.x}px`,
+                                top: `${contextMenu.y}px`,
+                                minWidth: '160px'
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <button
+                                className={`w-full text-left px-4 py-2 ${hoverClass} flex items-center gap-2 text-purple-400`}
+                                onClick={() => {
+                                    toggleChangeoverLap(contextMenu.teamIndex, contextMenu.driverIndex, contextMenu.lapIndex);
+                                    setContextMenu({ visible: false, x: 0, y: 0, teamIndex: null, driverIndex: null, lapIndex: null });
+                                }}
+                            >
+                                <Repeat className="w-4 h-4" />
+                                {teams[contextMenu.teamIndex]?.drivers[contextMenu.driverIndex]?.laps[contextMenu.lapIndex]?.lapType === 'changeover' ? 'Remove Changeover' : 'Mark as Changeover'}
+                            </button>
+                            <button
+                                className={`w-full text-left px-4 py-2 ${hoverClass} flex items-center gap-2 text-red-400`}
+                                onClick={() => {
+                                    removeLap(contextMenu.teamIndex, contextMenu.driverIndex, contextMenu.lapIndex);
+                                    setContextMenu({ visible: false, x: 0, y: 0, teamIndex: null, driverIndex: null, lapIndex: null });
+                                }}
+                            >
+                                <Trash2 className="w-4 h-4" />
+                                Delete Lap
+                            </button>
                         </div>
                     )}
                 </div>
