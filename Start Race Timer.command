@@ -17,8 +17,8 @@ SERVER_PID=$!
 # Wait for server to start
 sleep 1
 
-# Open the PWA from Dock
-open -a "Blind Freddy Race Timer"
+# Open Safari to localhost
+open -a Safari http://localhost:8000
 
 echo ""
 echo "✓ Server running on http://localhost:8000"
