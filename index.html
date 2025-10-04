@@ -112,7 +112,20 @@
             </svg>
         );
 
+        const AlertCircle = ({ className }) => (
+            <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+        );
+
         function BlindFreddyRaceTimer() {
+            // Helper function to format time as MM:SS
+            const formatTime = (seconds) => {
+                const mins = Math.floor(seconds / 60);
+                const secs = Math.floor(seconds % 60);
+                return `${mins}:${secs.toString().padStart(2, '0')}`;
+            };
+
             // Team-based data structure
             const [teams, setTeams] = useState([
                 {
@@ -220,10 +233,10 @@
                 }
             }, [contextMenu.visible]);
 
-            // Global keyboard handler for Enter key
+            // Global keyboard handler for Enter key and Spacebar
             useEffect(() => {
                 const handleGlobalKeyPress = (e) => {
-                    if (e.key === 'Enter' || e.key === 'Return') {
+                    if (e.key === 'Enter' || e.key === 'Return' || e.key === ' ') {
                         e.preventDefault();
                         addLap();
                     }
@@ -288,10 +301,15 @@
                 }
             };
 
-            const calculateLapType = (delta, isChangeover = false) => {
+            const calculateLapType = (delta, isChangeover = false, isSafety = false) => {
                 // Changeover laps are marked separately
                 if (isChangeover) {
                     return 'changeover';
+                }
+
+                // Safety car laps are marked separately
+                if (isSafety) {
+                    return 'safety';
                 }
 
                 // delta is lapTime - targetTime
@@ -309,10 +327,12 @@
             };
 
             const calculateLapValue = (lapType) => {
+                // Safety car lap = 0 (doesn't count)
                 // Changeover lap = 1
                 // Bonus lap = 2 (base lap + bonus lap credit)
                 // Base lap = 1
                 // Broken lap = 0 (lap completed but doesn't count toward achieved laps)
+                if (lapType === 'safety') return 0;
                 if (lapType === 'changeover') return 1;
                 if (lapType === 'bonus') return 2;
                 if (lapType === 'base') return 1;
@@ -428,7 +448,7 @@
                 const driver = updatedTeams[teamIndex].drivers[driverIndex];
                 driver.targetTime = newTarget;
                 driver.laps = driver.laps.map(lap => {
-                    if (lap.lapType === 'changeover') return lap; // Don't recalculate changeovers
+                    if (lap.lapType === 'changeover' || lap.lapType === 'safety') return lap; // Don't recalculate changeovers or safety laps
                     const delta = lap.time - newTarget;
                     const lapType = calculateLapType(delta);
                     return {
@@ -455,7 +475,7 @@
                 if (lap.lapType === 'changeover') {
                     // Revert to original type based on delta
                     const delta = lap.delta;
-                    const newLapType = calculateLapType(delta, false);
+                    const newLapType = calculateLapType(delta, false, false);
                     lap.lapType = newLapType;
                     lap.lapValue = calculateLapValue(newLapType);
                     setTeams(updatedTeams);
@@ -464,6 +484,25 @@
                     setChangeoverLapInfo({ teamIndex, driverIndex, lapIndex });
                     setShowDriverSwitch(true);
                 }
+            };
+
+            const toggleSafetyLap = (teamIndex, driverIndex, lapIndex) => {
+                const updatedTeams = [...teams];
+                const lap = updatedTeams[teamIndex].drivers[driverIndex].laps[lapIndex];
+
+                // Toggle between safety and the original lap type
+                if (lap.lapType === 'safety') {
+                    // Revert to original type based on delta
+                    const delta = lap.delta;
+                    const newLapType = calculateLapType(delta, false, false);
+                    lap.lapType = newLapType;
+                    lap.lapValue = calculateLapValue(newLapType);
+                } else {
+                    // Mark as safety car lap (doesn't switch driver)
+                    lap.lapType = 'safety';
+                    lap.lapValue = 0;
+                }
+                setTeams(updatedTeams);
             };
 
             const confirmDriverSwitch = (newDriverIndex) => {
@@ -612,9 +651,9 @@
                 return totalLapValue - driver.penaltyLaps;
             };
 
-            // Get driver's 3-lap rolling average delta (excluding changeover laps)
+            // Get driver's 3-lap rolling average delta (excluding changeover and safety car laps)
             const getDriver3LapAverage = (driver) => {
-                const regularLaps = driver.laps.filter(lap => lap.lapType !== 'changeover');
+                const regularLaps = driver.laps.filter(lap => lap.lapType !== 'changeover' && lap.lapType !== 'safety');
                 if (regularLaps.length === 0) return null;
 
                 const lastThree = regularLaps.slice(-3);
@@ -626,7 +665,7 @@
             const get3LapAverageAtIndex = (driver, lapIndex) => {
                 const regularLaps = driver.laps
                     .slice(0, lapIndex + 1)
-                    .filter(lap => lap.lapType !== 'changeover');
+                    .filter(lap => lap.lapType !== 'changeover' && lap.lapType !== 'safety');
 
                 if (regularLaps.length === 0) return null;
 
@@ -639,7 +678,7 @@
             const getLast3RegularLapsAtIndex = (driver, lapIndex) => {
                 const regularLaps = driver.laps
                     .slice(0, lapIndex + 1)
-                    .filter(lap => lap.lapType !== 'changeover');
+                    .filter(lap => lap.lapType !== 'changeover' && lap.lapType !== 'safety');
                 return regularLaps.slice(-3);
             };
 
@@ -659,7 +698,7 @@
             // Get signal color for current driver
             const getDriverSignalColor = (driver) => {
                 const avg = getDriver3LapAverage(driver);
-                const regularLaps = driver.laps.filter(lap => lap.lapType !== 'changeover');
+                const regularLaps = driver.laps.filter(lap => lap.lapType !== 'changeover' && lap.lapType !== 'safety');
                 const previousLap = regularLaps.length > 0 ? regularLaps[regularLaps.length - 1] : null;
                 return getSignalColor(avg, previousLap?.lapType);
             };
@@ -889,7 +928,7 @@
                             plugins: [whiteBackgroundPlugin, coloredZonesPlugin]
                         });
                     } else if (chartType === 'delta') {
-                        const nonChangeoverLaps = driver.laps.filter(lap => lap.lapType !== 'changeover');
+                        const nonChangeoverLaps = driver.laps.filter(lap => lap.lapType !== 'changeover' && lap.lapType !== 'safety');
                         const deltas = nonChangeoverLaps.map(lap => lap.delta);
                         const trendLine = calculateTrendLine(deltas);
 
@@ -980,9 +1019,11 @@
                 const driverData = team.drivers.map(d => {
                     const driverTotal = getDriverBaseLaps(d) + getDriverChangeoverLaps(d);
                     const percentage = teamTotal === 0 ? 0 : (driverTotal / teamTotal) * 100;
+                    const avgLapTime = d.laps.length > 0 ? d.laps.reduce((sum, lap) => sum + lap.time, 0) / d.laps.length : 0;
                     return [
                         d.name,
                         `${d.targetTime}s`,
+                        `${avgLapTime.toFixed(2)}s`,
                         getDriverBaseLaps(d),
                         `${percentage.toFixed(2)}%`,
                         getDriverBonusLaps(d),
@@ -998,6 +1039,7 @@
                 driverData.push([
                     'TOTAL',
                     '',
+                    '',
                     team.drivers.reduce((sum, d) => sum + getDriverBaseLaps(d), 0),
                     '100.00%',
                     team.drivers.reduce((sum, d) => sum + getDriverBonusLaps(d), 0),
@@ -1010,7 +1052,7 @@
 
                 doc.autoTable({
                     startY: yPos + 20,
-                    head: [['Driver', 'Target', 'Base', '% Team', 'Bonus', 'C/O', 'Broken', 'Penalty', 'Achieved', 'Goal']],
+                    head: [['Driver', 'Target', 'Avg Time', 'Base', '% Team', 'Bonus', 'C/O', 'Broken', 'Penalty', 'Achieved', 'Goal']],
                     body: driverData,
                     theme: 'striped',
                     headStyles: { fillColor: [30, 64, 175] },
@@ -1304,6 +1346,7 @@
                 const driver = currentTeam.drivers[driverIndex];
                 const avgDelta = getAverageDelta(driver);
                 const totalTime = driver.laps.reduce((acc, lap) => acc + lap.time, 0);
+                const avgLapTime = driver.laps.length > 0 ? totalTime / driver.laps.length : 0;
                 const bestLap = driver.laps.length > 0 ? Math.min(...driver.laps.map(l => Math.abs(l.delta))) : 0;
                 const worstLap = driver.laps.length > 0 ? Math.max(...driver.laps.map(l => Math.abs(l.delta))) : 0;
 
@@ -1332,9 +1375,10 @@
                 doc.setTextColor(0, 0, 0);
                 let statsY = yPos + 19;
                 doc.text(`Target Lap Time: ${driver.targetTime.toFixed(2)}s`, 20, statsY);
-                doc.text(`Total Laps Run: ${driver.laps.length}`, 20, statsY + 7);
-                doc.text(`Achieved Laps: ${getDriverAchievedLaps(driver)}`, 20, statsY + 14);
-                doc.text(`Goal Laps: ${calculateDriverGoalLaps(driver, currentTeam).toFixed(2)}`, 20, statsY + 21);
+                doc.text(`Avg Lap Time: ${avgLapTime.toFixed(2)}s`, 20, statsY + 7);
+                doc.text(`Total Laps Run: ${driver.laps.length}`, 20, statsY + 14);
+                doc.text(`Achieved Laps: ${getDriverAchievedLaps(driver)}`, 20, statsY + 21);
+                doc.text(`Goal Laps: ${calculateDriverGoalLaps(driver, currentTeam).toFixed(2)}`, 20, statsY + 28);
 
                 // Performance Stats
                 doc.setFontSize(14);
@@ -1357,13 +1401,13 @@
                     `${driver.targetTime.toFixed(2)}s`,
                     lap.lapType === 'changeover' ? '*****' : `${lap.delta > 0 ? '+' : ''}${lap.delta.toFixed(2)}s`,
                     lap.lapType === 'bonus' ? 'Bonus (+2)' :
-                    lap.lapType === 'broken' ? 'Broken (-1)' :
+                    lap.lapType === 'broken' ? 'Broken (0)' :
                     lap.lapType === 'changeover' ? 'Changeover (+1)' : 'Base (+1)'
                 ]);
 
                 if (lapData.length > 0) {
                     doc.autoTable({
-                        startY: statsY + 45,
+                        startY: statsY + 52,
                         head: [['Lap #', 'Time', 'Target', 'Delta', 'Type']],
                         body: lapData,
                         theme: 'striped',
@@ -1417,7 +1461,7 @@
                     doc.setFontSize(8);
                     doc.setTextColor(150, 150, 150);
                     doc.text(`${driver.name} - ${currentTeam.name}`, 105, 285, { align: 'center' });
-                    doc.text(`${currentTeam.name} Scoring: Bonus (+0.99s) = 2 laps | Base (>+0.99s) = 1 lap | Broken (<0s) = -1 lap`, 105, 290, { align: 'center' });
+                    doc.text(`${currentTeam.name} Scoring: Bonus (+0.99s) = 2 laps | Base (>+0.99s) = 1 lap | Broken (<0s) = 0 laps`, 105, 290, { align: 'center' });
                 }
 
                 doc.save(`${driver.name.replace(/\s+/g, '-')}-Report-${new Date().toISOString().split('T')[0]}.pdf`);
@@ -2091,6 +2135,14 @@
                                         <div className="flex items-center gap-3">
                                             <div className="flex gap-6 text-right">
                                                 <div>
+                                                    <div className={`text-xs ${statLabelClass}`}>Avg Lap Time</div>
+                                                    <div className="text-2xl font-bold">
+                                                        {driver.laps.length > 0
+                                                            ? formatTime(driver.laps.reduce((sum, lap) => sum + lap.time, 0) / driver.laps.length)
+                                                            : '-'}
+                                                    </div>
+                                                </div>
+                                                <div>
                                                     <div className={`text-xs ${statLabelClass}`}>Base Laps</div>
                                                     <div className="text-2xl font-bold">{driver.laps.length}</div>
                                                 </div>
@@ -2165,14 +2217,15 @@
                                                                 }}
                                                             >
                                                                 <td className="py-2 px-2 font-bold">#{lap.number}</td>
-                                                                <td className="py-2 px-2">{lap.time.toFixed(2)}s</td>
+                                                                <td className="py-2 px-2">{formatTime(lap.time)}</td>
                                                                 <td className={`py-2 px-2 font-bold ${
                                                                     lap.lapType === 'broken' ? 'text-red-400' :
                                                                     lap.lapType === 'bonus' ? 'text-green-400' :
                                                                     lap.lapType === 'changeover' ? 'text-purple-400' :
+                                                                    lap.lapType === 'safety' ? 'text-yellow-400' :
                                                                     'text-blue-400'
                                                                 }`}>
-                                                                    {lap.lapType === 'changeover' ? '***' : (!isNaN(lap.delta) ? `${lap.delta > 0 ? '+' : ''}${lap.delta.toFixed(2)}s` : '-')}
+                                                                    {lap.lapType === 'changeover' ? '***' : lap.lapType === 'safety' ? 'SC' : (!isNaN(lap.delta) ? `${lap.delta > 0 ? '+' : ''}${lap.delta.toFixed(2)}s` : '-')}
                                                                 </td>
                                                                 <td className="py-2 px-2">
                                                                     {lap.lapType === 'bonus' ? (
@@ -2181,6 +2234,8 @@
                                                                         <span className="text-blue-400 font-bold">Base</span>
                                                                     ) : lap.lapType === 'changeover' ? (
                                                                         <span className="text-purple-400 font-bold">C/O</span>
+                                                                    ) : lap.lapType === 'safety' ? (
+                                                                        <span className="text-yellow-400 font-bold">Safety</span>
                                                                     ) : (
                                                                         <span className="text-red-400 font-bold">Broken</span>
                                                                     )}
@@ -2192,6 +2247,8 @@
                                                                         <span className="text-blue-400">+1</span>
                                                                     ) : lap.lapType === 'changeover' ? (
                                                                         <span className="text-purple-400">+1</span>
+                                                                    ) : lap.lapType === 'safety' ? (
+                                                                        <span className="text-yellow-400">0</span>
                                                                     ) : (
                                                                         <span className="text-red-400">0</span>
                                                                     )}
@@ -2199,7 +2256,7 @@
                                                                 <td className="py-2 px-2 text-center">
                                                                     {(() => {
                                                                         const avg = get3LapAverageAtIndex(driver, originalIdx);
-                                                                        const regularLaps = driver.laps.slice(0, originalIdx + 1).filter(lap => lap.lapType !== 'changeover');
+                                                                        const regularLaps = driver.laps.slice(0, originalIdx + 1).filter(lap => lap.lapType !== 'changeover' && lap.lapType !== 'safety');
                                                                         const previousLap = regularLaps.length > 0 ? regularLaps[regularLaps.length - 1] : null;
                                                                         const signalColor = getSignalColor(avg, previousLap?.lapType);
                                                                         if (!signalColor) return null;
@@ -2422,6 +2479,16 @@
                             >
                                 <Repeat className="w-4 h-4" />
                                 {teams[contextMenu.teamIndex]?.drivers[contextMenu.driverIndex]?.laps[contextMenu.lapIndex]?.lapType === 'changeover' ? 'Remove Changeover' : 'Mark as Changeover'}
+                            </button>
+                            <button
+                                className={`w-full text-left px-4 py-2 ${hoverClass} flex items-center gap-2 text-yellow-400`}
+                                onClick={() => {
+                                    toggleSafetyLap(contextMenu.teamIndex, contextMenu.driverIndex, contextMenu.lapIndex);
+                                    setContextMenu({ visible: false, x: 0, y: 0, teamIndex: null, driverIndex: null, lapIndex: null });
+                                }}
+                            >
+                                <AlertCircle className="w-4 h-4" />
+                                {teams[contextMenu.teamIndex]?.drivers[contextMenu.driverIndex]?.laps[contextMenu.lapIndex]?.lapType === 'safety' ? 'Remove Safety Car' : 'Mark as Safety Car'}
                             </button>
                             <button
                                 className={`w-full text-left px-4 py-2 ${hoverClass} flex items-center gap-2 text-red-400`}
