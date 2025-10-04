@@ -171,10 +171,14 @@
                     const parsed = JSON.parse(saved);
                     // Ensure enabled property exists (default to true for backwards compatibility)
                     if (parsed.enabled === undefined) parsed.enabled = true;
+                    if (parsed.beforeTargetEnabled === undefined) parsed.beforeTargetEnabled = true;
+                    if (parsed.afterLapStartEnabled === undefined) parsed.afterLapStartEnabled = true;
                     return parsed;
                 }
                 return {
                     enabled: true,
+                    beforeTargetEnabled: true,
+                    afterLapStartEnabled: true,
                     beforeTargetTime: 10,
                     afterLapStart: 15
                 };
@@ -290,7 +294,7 @@
                         setElapsedTime(elapsed);
 
                         // Audio warning: X seconds after lap start
-                        if (elapsed >= audioSettings.afterLapStart && !afterStartBeepPlayedRef.current) {
+                        if (audioSettings.afterLapStartEnabled && elapsed >= audioSettings.afterLapStart && !afterStartBeepPlayedRef.current) {
                             console.log('After start beep triggered at', elapsed, 'seconds');
                             playBeep(true); // Double beep for after lap start
                             afterStartBeepPlayedRef.current = true;
@@ -302,7 +306,7 @@
                             const timeUntilTarget = driver.targetTime - elapsed;
 
                             // Audio warning: X seconds before target time
-                            if (timeUntilTarget <= audioSettings.beforeTargetTime && timeUntilTarget > 0 && !beforeTargetBeepPlayedRef.current) {
+                            if (audioSettings.beforeTargetEnabled && timeUntilTarget <= audioSettings.beforeTargetTime && timeUntilTarget > 0 && !beforeTargetBeepPlayedRef.current) {
                                 console.log('Before target beep triggered at', elapsed, 'seconds, time until target:', timeUntilTarget);
                                 playBeep();
                                 beforeTargetBeepPlayedRef.current = true;
@@ -794,7 +798,7 @@
                 const percentage = driverTotal / teamTotal;
 
                 // Formula: (percentage * sessionDuration * 60) / driver's target time * 2 (to consider bonus laps)
-                const sessionDurationSeconds = (team.sessionDuration || 600) * 60;
+                const sessionDurationSeconds = (team.sessionDuration || 120) * 60;
                 const theoreticalMax = (percentage * sessionDurationSeconds) / driver.targetTime;
                 return theoreticalMax * 2; // Doubled to consider bonus laps
             };
@@ -866,6 +870,8 @@
                 if (!audioSettings.enabled) return; // Check if audio is enabled
 
                 const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+
+                // Play first beep
                 const oscillator = audioContext.createOscillator();
                 const gainNode = audioContext.createGain();
 
@@ -881,25 +887,23 @@
                 oscillator.start(audioContext.currentTime);
                 oscillator.stop(audioContext.currentTime + 0.2);
 
-                // Play second beep if doubleBeep is true
+                // Play second beep if doubleBeep is true - use same AudioContext
                 if (doubleBeep) {
-                    setTimeout(() => {
-                        const audioContext2 = new (window.AudioContext || window.webkitAudioContext)();
-                        const oscillator2 = audioContext2.createOscillator();
-                        const gainNode2 = audioContext2.createGain();
+                    const oscillator2 = audioContext.createOscillator();
+                    const gainNode2 = audioContext.createGain();
 
-                        oscillator2.connect(gainNode2);
-                        gainNode2.connect(audioContext2.destination);
+                    oscillator2.connect(gainNode2);
+                    gainNode2.connect(audioContext.destination);
 
-                        oscillator2.frequency.value = 800;
-                        oscillator2.type = 'sine';
+                    oscillator2.frequency.value = 800;
+                    oscillator2.type = 'sine';
 
-                        gainNode2.gain.setValueAtTime(0.3, audioContext2.currentTime);
-                        gainNode2.gain.exponentialRampToValueAtTime(0.01, audioContext2.currentTime + 0.2);
+                    const startTime = audioContext.currentTime + 0.25;
+                    gainNode2.gain.setValueAtTime(0.3, startTime);
+                    gainNode2.gain.exponentialRampToValueAtTime(0.01, startTime + 0.2);
 
-                        oscillator2.start(audioContext2.currentTime);
-                        oscillator2.stop(audioContext2.currentTime + 0.2);
-                    }, 250);
+                    oscillator2.start(startTime);
+                    oscillator2.stop(startTime + 0.2);
                 }
             };
 
@@ -1158,39 +1162,41 @@
                     const driverTotal = getDriverBaseLaps(d) + getDriverChangeoverLaps(d);
                     const percentage = teamTotal === 0 ? 0 : (driverTotal / teamTotal) * 100;
                     const avgLapTime = d.laps.length > 0 ? d.laps.reduce((sum, lap) => sum + lap.time, 0) / d.laps.length : 0;
+                    const netScore = getDriverBonusLaps(d) - getDriverBrokenLaps(d);
                     return [
                         d.name,
                         formatTime(d.targetTime),
                         formatTime(avgLapTime),
+                        getDriverAchievedLaps(d),
+                        netScore,
                         getDriverBaseLaps(d),
-                        `${percentage.toFixed(2)}%`,
                         getDriverBonusLaps(d),
                         getDriverChangeoverLaps(d),
                         getDriverBrokenLaps(d),
                         d.penaltyLaps,
-                        getDriverAchievedLaps(d),
                         calculateDriverGoalLaps(d, team).toFixed(2)
                     ];
                 });
 
                 // Add totals row
+                const totalNetScore = team.drivers.reduce((sum, d) => sum + (getDriverBonusLaps(d) - getDriverBrokenLaps(d)), 0);
                 driverData.push([
                     'TOTAL',
                     '',
                     '',
+                    achievedLaps,
+                    totalNetScore,
                     team.drivers.reduce((sum, d) => sum + getDriverBaseLaps(d), 0),
-                    '100.00%',
                     team.drivers.reduce((sum, d) => sum + getDriverBonusLaps(d), 0),
                     team.drivers.reduce((sum, d) => sum + getDriverChangeoverLaps(d), 0),
                     team.drivers.reduce((sum, d) => sum + getDriverBrokenLaps(d), 0),
                     team.drivers.reduce((sum, d) => sum + d.penaltyLaps, 0),
-                    achievedLaps,
                     goalLaps.toFixed(2)
                 ]);
 
                 doc.autoTable({
                     startY: yPos + 20,
-                    head: [['Driver', 'Target', 'Avg Time', 'Base', '% Team', 'Bonus', 'C/O', 'Broken', 'Penalty', 'Achieved', 'Goal']],
+                    head: [['Driver', 'Target', 'Avg Time', 'Achieved', 'Net', 'Base', 'Bonus', 'C/O', 'Broken', 'Penalty', 'Goal']],
                     body: driverData,
                     theme: 'striped',
                     headStyles: { fillColor: [30, 64, 175] },
@@ -1262,7 +1268,8 @@
                     doc.text(`Page ${i} of ${pageCount}`, 105, 290, { align: 'center' });
                 }
 
-                doc.save(`${team.name.replace(/\s+/g, '-')}-Race-Report-${new Date().toISOString().split('T')[0]}.pdf`);
+                const sessionNumber = team.sessionNumber ? `-Session-${team.sessionNumber}` : '';
+                doc.save(`${team.name.replace(/\s+/g, '-')}${sessionNumber}-${new Date().toISOString().split('T')[0]}.pdf`);
             };
 
             const generatePDFOld = () => {
@@ -1520,7 +1527,8 @@
                 doc.text(`Avg Lap Time: ${formatTime(avgLapTime)}`, 20, statsY + 7);
                 doc.text(`Total Laps Run: ${driver.laps.length}`, 20, statsY + 14);
                 doc.text(`Achieved Laps: ${getDriverAchievedLaps(driver)}`, 20, statsY + 21);
-                doc.text(`Goal Laps: ${calculateDriverGoalLaps(driver, currentTeam).toFixed(2)}`, 20, statsY + 28);
+                doc.text(`Net Score: ${getDriverBonusLaps(driver) - getDriverBrokenLaps(driver)}`, 20, statsY + 28);
+                doc.text(`Goal Laps: ${calculateDriverGoalLaps(driver, currentTeam).toFixed(2)}`, 20, statsY + 35);
 
                 // Performance Stats
                 doc.setFontSize(14);
@@ -1535,6 +1543,8 @@
                 doc.text(`Broken Laps: ${getDriverBrokenLaps(driver)}`, 110, statsY + 21);
                 doc.text(`Penalty Laps: ${driver.penaltyLaps}`, 110, statsY + 28);
                 doc.text(`Avg Delta: ${avgDelta > 0 ? '+' : ''}${formatTime(Math.abs(avgDelta))}`, 110, statsY + 35);
+                doc.text(`Best Consistency: ${formatTime(bestLap)}`, 110, statsY + 42);
+                doc.text(`Worst Consistency: ${formatTime(worstLap)}`, 110, statsY + 49);
 
                 // Lap Details Table
                 const lapData = driver.laps.map(lap => [
@@ -1549,7 +1559,7 @@
 
                 if (lapData.length > 0) {
                     doc.autoTable({
-                        startY: statsY + 52,
+                        startY: statsY + 59,
                         head: [['Lap #', 'Time', 'Target', 'Delta', 'Type']],
                         body: lapData,
                         theme: 'striped',
@@ -1606,7 +1616,8 @@
                     doc.text(`${currentTeam.name} Scoring: Bonus (+0.99s) = 2 laps | Base (>+0.99s) = 1 lap | Broken (<0s) = 0 laps`, 105, 290, { align: 'center' });
                 }
 
-                doc.save(`${driver.name.replace(/\s+/g, '-')}-Report-${new Date().toISOString().split('T')[0]}.pdf`);
+                const sessionNumber = currentTeam.sessionNumber ? `-Session-${currentTeam.sessionNumber}` : '';
+                doc.save(`${driver.name.replace(/\s+/g, '-')}${sessionNumber}-${new Date().toISOString().split('T')[0]}.pdf`);
             };
 
             const generateDriverPDFOld = (teamIndex, driverIndex) => {
@@ -2027,13 +2038,13 @@
                                     <label className={`text-sm font-semibold ${labelClass}`}>Session Duration (mins):</label>
                                     <input
                                         type="number"
-                                        value={team.sessionDuration || 600}
+                                        value={team.sessionDuration || 120}
                                         onChange={(e) => {
                                             const updatedTeams = [...teams];
                                             updatedTeams[0].sessionDuration = parseFloat(e.target.value) || 600;
                                             setTeams(updatedTeams);
                                         }}
-                                        placeholder="600"
+                                        placeholder="120"
                                         className={`w-24 px-3 py-2 ${inputBgClass} rounded-lg border ${borderClass} focus:border-blue-500 focus:outline-none text-sm`}
                                     />
                                 </div>
@@ -2099,18 +2110,12 @@
                                             <span className="font-bold text-yellow-600">{getDriverAchievedLaps(driver)}</span>
                                         </div>
                                         <div className="flex justify-between">
-                                            <span className={statLabelClass}>Base Laps:</span>
-                                            <span className="font-bold">{getDriverBaseLaps(driver)}</span>
+                                            <span className={statLabelClass}>Net Score:</span>
+                                            <span className="font-bold text-blue-400">{getDriverBonusLaps(driver) - getDriverBrokenLaps(driver)}</span>
                                         </div>
                                         <div className="flex justify-between">
-                                            <span className={statLabelClass}>% of Team Base:</span>
-                                            <span className="font-bold">{(() => {
-                                                const teamTotal = getTeamBaseAndChangeoverLaps(team);
-                                                if (teamTotal === 0) return '0.00%';
-                                                const driverTotal = getDriverBaseLaps(driver) + getDriverChangeoverLaps(driver);
-                                                const percentage = (driverTotal / teamTotal) * 100;
-                                                return percentage.toFixed(2) + '%';
-                                            })()}</span>
+                                            <span className={statLabelClass}>Base Laps:</span>
+                                            <span className="font-bold">{getDriverBaseLaps(driver)}</span>
                                         </div>
                                         <div className="flex justify-between">
                                             <span className={statLabelClass}>Bonus Laps:</span>
@@ -2577,9 +2582,26 @@
                                             </div>
 
                                             <div>
-                                                <label className="block text-sm font-medium mb-2">
-                                                    Beep before target time (seconds)
-                                                </label>
+                                                <div className="flex items-center justify-between mb-2">
+                                                    <label className="block text-sm font-medium">
+                                                        Beep before target time (seconds)
+                                                    </label>
+                                                    <button
+                                                        onClick={() => setAudioSettings({
+                                                            ...audioSettings,
+                                                            beforeTargetEnabled: !audioSettings.beforeTargetEnabled
+                                                        })}
+                                                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                                                            audioSettings.beforeTargetEnabled ? 'bg-blue-600' : 'bg-gray-300'
+                                                        }`}
+                                                    >
+                                                        <span
+                                                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                                                                audioSettings.beforeTargetEnabled ? 'translate-x-6' : 'translate-x-1'
+                                                            }`}
+                                                        />
+                                                    </button>
+                                                </div>
                                                 <input
                                                     type="number"
                                                     min="1"
@@ -2589,7 +2611,8 @@
                                                         ...audioSettings,
                                                         beforeTargetTime: parseInt(e.target.value) || 10
                                                     })}
-                                                    className={`w-full px-3 py-2 ${inputBgClass} border ${borderClass} rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                                                    disabled={!audioSettings.beforeTargetEnabled}
+                                                    className={`w-full px-3 py-2 ${inputBgClass} border ${borderClass} rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${!audioSettings.beforeTargetEnabled ? 'opacity-50 cursor-not-allowed' : ''}`}
                                                 />
                                                 <p className="text-xs text-gray-500 mt-1">
                                                     Play a beep when this many seconds remain before target time
@@ -2597,9 +2620,26 @@
                                             </div>
 
                                             <div>
-                                                <label className="block text-sm font-medium mb-2">
-                                                    Beep after lap start (seconds)
-                                                </label>
+                                                <div className="flex items-center justify-between mb-2">
+                                                    <label className="block text-sm font-medium">
+                                                        Beep after lap start (seconds)
+                                                    </label>
+                                                    <button
+                                                        onClick={() => setAudioSettings({
+                                                            ...audioSettings,
+                                                            afterLapStartEnabled: !audioSettings.afterLapStartEnabled
+                                                        })}
+                                                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                                                            audioSettings.afterLapStartEnabled ? 'bg-blue-600' : 'bg-gray-300'
+                                                        }`}
+                                                    >
+                                                        <span
+                                                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                                                                audioSettings.afterLapStartEnabled ? 'translate-x-6' : 'translate-x-1'
+                                                            }`}
+                                                        />
+                                                    </button>
+                                                </div>
                                                 <input
                                                     type="number"
                                                     min="1"
@@ -2609,10 +2649,11 @@
                                                         ...audioSettings,
                                                         afterLapStart: parseInt(e.target.value) || 15
                                                     })}
-                                                    className={`w-full px-3 py-2 ${inputBgClass} border ${borderClass} rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                                                    disabled={!audioSettings.afterLapStartEnabled}
+                                                    className={`w-full px-3 py-2 ${inputBgClass} border ${borderClass} rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${!audioSettings.afterLapStartEnabled ? 'opacity-50 cursor-not-allowed' : ''}`}
                                                 />
                                                 <p className="text-xs text-gray-500 mt-1">
-                                                    Play a beep this many seconds after starting the timer
+                                                    Play a double beep this many seconds after starting the timer
                                                 </p>
                                             </div>
 
