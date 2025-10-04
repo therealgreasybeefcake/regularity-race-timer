@@ -7,7 +7,7 @@ cd "$(dirname "$0")"
 lsof -ti:8000 | xargs kill -9 2>/dev/null
 
 # Start the server
-echo "Starting Blind Freddy Race Timer..."
+echo "Regularity Race Timer..."
 echo "Opening Safari..."
 
 # Start server in background
@@ -22,7 +22,7 @@ open -a Safari http://localhost:8000
 
 echo ""
 echo "✓ Server running on http://localhost:8000"
-echo "✓ Blind Freddy Race Timer opened"
+echo "✓ Regularity Race Timer opened"
 echo ""
 echo "Press Ctrl+C to stop the server"
 
