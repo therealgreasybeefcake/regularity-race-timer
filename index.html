@@ -119,11 +119,16 @@
         );
 
         function BlindFreddyRaceTimer() {
-            // Helper function to format time as MM:SS
+            // Helper function to format time as MM:SS.mmm
             const formatTime = (seconds) => {
                 const mins = Math.floor(seconds / 60);
-                const secs = Math.floor(seconds % 60);
-                return `${mins}:${secs.toString().padStart(2, '0')}`;
+                const secs = seconds % 60;
+                return `${mins}:${secs.toFixed(3).padStart(6, '0')}`;
+            };
+
+            // Helper function to format time in seconds with milliseconds
+            const formatTimeWithMilliseconds = (seconds) => {
+                return `${seconds.toFixed(3)}s`;
             };
 
             // Team-based data structure
@@ -151,10 +156,22 @@
             const startTimeRef = useRef(null);
             const intervalRef = useRef(null);
             const lastLapTimeRef = useRef(null);
+            const beforeTargetBeepPlayedRef = useRef(false);
+            const afterStartBeepPlayedRef = useRef(false);
+            const [timerResetTrigger, setTimerResetTrigger] = useState(0);
             const [isDarkMode, setIsDarkMode] = useState(() => {
                 const saved = localStorage.getItem('darkMode');
                 if (saved !== null) return saved === 'true';
                 return window.matchMedia('(prefers-color-scheme: dark)').matches;
+            });
+            const [showSettings, setShowSettings] = useState(false);
+            const [audioSettings, setAudioSettings] = useState(() => {
+                const saved = localStorage.getItem('audioSettings');
+                if (saved) return JSON.parse(saved);
+                return {
+                    beforeTargetTime: 10,
+                    afterLapStart: 15
+                };
             });
             const [showTeamScoring, setShowTeamScoring] = useState(false);
             const [showTeamSettings, setShowTeamSettings] = useState(false);
@@ -195,6 +212,11 @@
             useEffect(() => {
                 localStorage.setItem('darkMode', isDarkMode.toString());
             }, [isDarkMode]);
+
+            // Save audio settings to localStorage
+            useEffect(() => {
+                localStorage.setItem('audioSettings', JSON.stringify(audioSettings));
+            }, [audioSettings]);
 
             // Close dropdown when clicking outside
             useEffect(() => {
@@ -247,6 +269,12 @@
                 return () => window.removeEventListener('keydown', handleGlobalKeyPress);
             }, [isRunning, elapsedTime, lapInput, activeDriver, activeTeam, teams]);
 
+            // Reset beep flags when timer is reset
+            useEffect(() => {
+                beforeTargetBeepPlayedRef.current = false;
+                afterStartBeepPlayedRef.current = false;
+            }, [timerResetTrigger]);
+
             // Stopwatch timer effect
             useEffect(() => {
                 if (isRunning) {
@@ -255,12 +283,26 @@
                         const elapsed = Math.floor((now - startTimeRef.current) / 10) / 100;
                         setElapsedTime(elapsed);
 
-                        // Check for 10-second warning
+                        // Audio warning: X seconds after lap start
+                        if (elapsed >= audioSettings.afterLapStart && !afterStartBeepPlayedRef.current) {
+                            console.log('After start beep triggered at', elapsed, 'seconds');
+                            playBeep();
+                            afterStartBeepPlayedRef.current = true;
+                        }
+
+                        // Check for warning before target time
                         if (timerDriverIndex !== null) {
                             const driver = teams[0].drivers[timerDriverIndex];
                             const timeUntilTarget = driver.targetTime - elapsed;
 
-                            // Show warning when less than 10 seconds remain
+                            // Audio warning: X seconds before target time
+                            if (timeUntilTarget <= audioSettings.beforeTargetTime && timeUntilTarget > 0 && !beforeTargetBeepPlayedRef.current) {
+                                console.log('Before target beep triggered at', elapsed, 'seconds, time until target:', timeUntilTarget);
+                                playBeep();
+                                beforeTargetBeepPlayedRef.current = true;
+                            }
+
+                            // Show visual warning when less than 10 seconds remain
                             if (timeUntilTarget <= 10 && timeUntilTarget > 0) {
                                 setShowWarning(true);
                             } else {
@@ -279,7 +321,7 @@
                         clearInterval(intervalRef.current);
                     }
                 };
-            }, [isRunning, timerDriverIndex, teams]);
+            }, [isRunning, timerDriverIndex, teams, audioSettings]);
 
             const startStopwatch = () => {
                 startTimeRef.current = Date.now();
@@ -287,6 +329,7 @@
                 setIsRunning(true);
                 setTimerDriverIndex(activeDriver);
                 setShowWarning(false);
+                setTimerResetTrigger(prev => prev + 1); // Trigger beep flag reset
             };
 
             const stopStopwatch = () => {
@@ -789,10 +832,45 @@
                 }
             };
 
-            const getAverageDelta = (driver) => {
+            const getAverageDelta = (driver, excludeOutliers = false) => {
                 if (driver.laps.length === 0) return 0;
-                const sum = driver.laps.reduce((acc, lap) => acc + lap.delta, 0);
-                return sum / driver.laps.length;
+
+                if (!excludeOutliers) {
+                    const sum = driver.laps.reduce((acc, lap) => acc + lap.delta, 0);
+                    return sum / driver.laps.length;
+                }
+
+                // For PDFs, exclude highest and lowest delta values
+                if (driver.laps.length <= 2) {
+                    // Not enough laps to exclude outliers
+                    const sum = driver.laps.reduce((acc, lap) => acc + lap.delta, 0);
+                    return sum / driver.laps.length;
+                }
+
+                const deltas = driver.laps.map(lap => lap.delta).sort((a, b) => a - b);
+                // Remove first (lowest) and last (highest)
+                const filteredDeltas = deltas.slice(1, -1);
+                const sum = filteredDeltas.reduce((acc, delta) => acc + delta, 0);
+                return sum / filteredDeltas.length;
+            };
+
+            // Audio beep functionality
+            const playBeep = () => {
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+
+                oscillator.frequency.value = 800; // Frequency in Hz
+                oscillator.type = 'sine';
+
+                gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2);
+
+                oscillator.start(audioContext.currentTime);
+                oscillator.stop(audioContext.currentTime + 0.2);
             };
 
             // Helper function to calculate linear regression trend line
@@ -1048,8 +1126,8 @@
                     const avgLapTime = d.laps.length > 0 ? d.laps.reduce((sum, lap) => sum + lap.time, 0) / d.laps.length : 0;
                     return [
                         d.name,
-                        `${d.targetTime}s`,
-                        `${avgLapTime.toFixed(2)}s`,
+                        formatTime(d.targetTime),
+                        formatTime(avgLapTime),
                         getDriverBaseLaps(d),
                         `${percentage.toFixed(2)}%`,
                         getDriverBonusLaps(d),
@@ -1096,9 +1174,9 @@
 
                     const lapData = driver.laps.map(lap => [
                         lap.number,
-                        `${lap.time.toFixed(2)}s`,
-                        `${driver.targetTime.toFixed(2)}s`,
-                        lap.lapType === 'changeover' ? '*****' : `${lap.delta > 0 ? '+' : ''}${lap.delta.toFixed(2)}s`,
+                        formatTime(lap.time),
+                        formatTime(driver.targetTime),
+                        lap.lapType === 'changeover' ? '*****' : `${lap.delta > 0 ? '+' : ''}${formatTime(Math.abs(lap.delta))}`,
                         lap.lapType === 'bonus' ? 'Bonus (+2)' :
                         lap.lapType === 'broken' ? 'Broken (0)' :
                         lap.lapType === 'changeover' ? 'Changeover (+1)' : 'Base (+1)'
@@ -1257,7 +1335,7 @@
 
                 // Individual driver details
                 currentTeam.drivers.forEach((driver, idx) => {
-                    const avgDelta = getAverageDelta(driver);
+                    const avgDelta = getAverageDelta(driver, true);
                     const totalTime = driver.laps.reduce((acc, lap) => acc + lap.time, 0);
                     const bestLap = driver.laps.length > 0 ? Math.min(...driver.laps.map(l => Math.abs(l.delta))) : 0;
                     const worstLap = driver.laps.length > 0 ? Math.max(...driver.laps.map(l => Math.abs(l.delta))) : 0;
@@ -1328,9 +1406,9 @@
                             htmlContent += `
                                 <tr>
                                     <td>${lap.number}</td>
-                                    <td>${lap.time.toFixed(2)}s</td>
-                                    <td>${driver.targetTime.toFixed(2)}s</td>
-                                    <td class="${statusClass}">${lap.lapType === 'changeover' ? '*****' : (lap.delta > 0 ? '+' : '') + lap.delta.toFixed(2) + 's'}</td>
+                                    <td>${formatTime(lap.time)}</td>
+                                    <td>${formatTime(driver.targetTime)}</td>
+                                    <td class="${statusClass}">${lap.lapType === 'changeover' ? '*****' : (lap.delta > 0 ? '+' : '') + formatTime(Math.abs(lap.delta))}</td>
                                     <td class="${statusClass}">${statusText}</td>
                                 </tr>
                             `;
@@ -1370,7 +1448,7 @@
 
                 const currentTeam = teams[teamIndex];
                 const driver = currentTeam.drivers[driverIndex];
-                const avgDelta = getAverageDelta(driver);
+                const avgDelta = getAverageDelta(driver, true);
                 const totalTime = driver.laps.reduce((acc, lap) => acc + lap.time, 0);
                 const avgLapTime = driver.laps.length > 0 ? totalTime / driver.laps.length : 0;
                 const bestLap = driver.laps.length > 0 ? Math.min(...driver.laps.map(l => Math.abs(l.delta))) : 0;
@@ -1400,8 +1478,8 @@
                 doc.setFontSize(11);
                 doc.setTextColor(0, 0, 0);
                 let statsY = yPos + 19;
-                doc.text(`Target Lap Time: ${driver.targetTime.toFixed(2)}s`, 20, statsY);
-                doc.text(`Avg Lap Time: ${avgLapTime.toFixed(2)}s`, 20, statsY + 7);
+                doc.text(`Target Lap Time: ${formatTime(driver.targetTime)}`, 20, statsY);
+                doc.text(`Avg Lap Time: ${formatTime(avgLapTime)}`, 20, statsY + 7);
                 doc.text(`Total Laps Run: ${driver.laps.length}`, 20, statsY + 14);
                 doc.text(`Achieved Laps: ${getDriverAchievedLaps(driver)}`, 20, statsY + 21);
                 doc.text(`Goal Laps: ${calculateDriverGoalLaps(driver, currentTeam).toFixed(2)}`, 20, statsY + 28);
@@ -1418,14 +1496,14 @@
                 doc.text(`Changeover: ${getDriverChangeoverLaps(driver)}`, 110, statsY + 14);
                 doc.text(`Broken Laps: ${getDriverBrokenLaps(driver)}`, 110, statsY + 21);
                 doc.text(`Penalty Laps: ${driver.penaltyLaps}`, 110, statsY + 28);
-                doc.text(`Avg Delta: ${avgDelta > 0 ? '+' : ''}${avgDelta.toFixed(2)}s`, 110, statsY + 35);
+                doc.text(`Avg Delta: ${avgDelta > 0 ? '+' : ''}${formatTime(Math.abs(avgDelta))}`, 110, statsY + 35);
 
                 // Lap Details Table
                 const lapData = driver.laps.map(lap => [
                     lap.number,
-                    `${lap.time.toFixed(2)}s`,
-                    `${driver.targetTime.toFixed(2)}s`,
-                    lap.lapType === 'changeover' ? '*****' : `${lap.delta > 0 ? '+' : ''}${lap.delta.toFixed(2)}s`,
+                    formatTime(lap.time),
+                    formatTime(driver.targetTime),
+                    lap.lapType === 'changeover' ? '*****' : `${lap.delta > 0 ? '+' : ''}${formatTime(Math.abs(lap.delta))}`,
                     lap.lapType === 'bonus' ? 'Bonus (+2)' :
                     lap.lapType === 'broken' ? 'Broken (0)' :
                     lap.lapType === 'changeover' ? 'Changeover (+1)' : 'Base (+1)'
@@ -1496,7 +1574,7 @@
             const generateDriverPDFOld = (teamIndex, driverIndex) => {
                 const currentTeam = teams[teamIndex];
                 const driver = currentTeam.drivers[driverIndex];
-                const avgDelta = getAverageDelta(driver);
+                const avgDelta = getAverageDelta(driver, true);
                 const totalTime = driver.laps.reduce((acc, lap) => acc + lap.time, 0);
                 const bestLap = driver.laps.length > 0 ? Math.min(...driver.laps.map(l => Math.abs(l.delta))) : 0;
                 const worstLap = driver.laps.length > 0 ? Math.max(...driver.laps.map(l => Math.abs(l.delta))) : 0;
@@ -1620,9 +1698,9 @@
                         htmlContent += `
                             <tr>
                                 <td>${lap.number}</td>
-                                <td>${lap.time.toFixed(2)}s</td>
-                                <td>${driver.targetTime.toFixed(2)}s</td>
-                                <td class="${statusClass}">${lap.lapType === 'changeover' ? '*****' : (lap.delta > 0 ? '+' : '') + lap.delta.toFixed(2) + 's'}</td>
+                                <td>${formatTime(lap.time)}</td>
+                                <td>${formatTime(driver.targetTime)}</td>
+                                <td class="${statusClass}">${lap.lapType === 'changeover' ? '*****' : (lap.delta > 0 ? '+' : '') + formatTime(Math.abs(lap.delta))}</td>
                                 <td class="${statusClass}">${statusText}</td>
                             </tr>
                         `;
@@ -1831,13 +1909,22 @@
                                         </div>
                                     )}
                                 </div>
-                                <button
-                                    onClick={() => setIsDarkMode(!isDarkMode)}
-                                    className="px-4 py-2 bg-gray-600 hover:bg-gray-700 rounded-lg font-semibold transition-colors"
-                                    title="Toggle theme"
-                                >
-                                    {isDarkMode ? '☀️' : '🌙'}
-                                </button>
+                                <div className="flex gap-2">
+                                    <button
+                                        onClick={() => setShowSettings(true)}
+                                        className={`px-4 py-2 ${isDarkMode ? 'bg-gray-600 hover:bg-gray-700' : 'bg-gray-300 hover:bg-gray-400'} rounded-lg font-semibold transition-colors`}
+                                        title="Settings"
+                                    >
+                                        <Settings className="w-5 h-5" />
+                                    </button>
+                                    <button
+                                        onClick={() => setIsDarkMode(!isDarkMode)}
+                                        className={`px-4 py-2 ${isDarkMode ? 'bg-gray-600 hover:bg-gray-700' : 'bg-gray-300 hover:bg-gray-400'} rounded-lg font-semibold transition-colors`}
+                                        title="Toggle theme"
+                                    >
+                                        {isDarkMode ? '☀️' : '🌙'}
+                                    </button>
+                                </div>
                             </div>
                         </div>
 
@@ -2276,7 +2363,9 @@
                                                                             autoFocus
                                                                         />
                                                                     ) : (
-                                                                        formatTime(lap.time)
+                                                                        <span title={formatTimeWithMilliseconds(lap.time)}>
+                                                                            {formatTime(lap.time)}
+                                                                        </span>
                                                                     )}
                                                                 </td>
                                                                 <td className={`py-2 px-2 font-bold ${
@@ -2396,6 +2485,79 @@
                     )}
 
                     {/* Team Scoring Modal */}
+                    {showSettings && (
+                        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+                            <div className={`${cardBgClass} rounded-lg p-6 max-w-md w-full shadow-2xl`}>
+                                <div className="flex justify-between items-center mb-6">
+                                    <h2 className="text-2xl font-bold">Settings</h2>
+                                    <button
+                                        onClick={() => setShowSettings(false)}
+                                        className="text-gray-400 hover:text-gray-600 transition-colors"
+                                    >
+                                        <X className="w-6 h-6" />
+                                    </button>
+                                </div>
+
+                                <div className="space-y-6">
+                                    <div>
+                                        <h3 className="text-lg font-semibold mb-4">Audio Warnings</h3>
+
+                                        <div className="space-y-4">
+                                            <div>
+                                                <label className="block text-sm font-medium mb-2">
+                                                    Beep before target time (seconds)
+                                                </label>
+                                                <input
+                                                    type="number"
+                                                    min="1"
+                                                    max="60"
+                                                    value={audioSettings.beforeTargetTime}
+                                                    onChange={(e) => setAudioSettings({
+                                                        ...audioSettings,
+                                                        beforeTargetTime: parseInt(e.target.value) || 10
+                                                    })}
+                                                    className={`w-full px-3 py-2 ${inputBgClass} border ${borderClass} rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                                                />
+                                                <p className="text-xs text-gray-500 mt-1">
+                                                    Play a beep when this many seconds remain before target time
+                                                </p>
+                                            </div>
+
+                                            <div>
+                                                <label className="block text-sm font-medium mb-2">
+                                                    Beep after lap start (seconds)
+                                                </label>
+                                                <input
+                                                    type="number"
+                                                    min="1"
+                                                    max="60"
+                                                    value={audioSettings.afterLapStart}
+                                                    onChange={(e) => setAudioSettings({
+                                                        ...audioSettings,
+                                                        afterLapStart: parseInt(e.target.value) || 15
+                                                    })}
+                                                    className={`w-full px-3 py-2 ${inputBgClass} border ${borderClass} rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                                                />
+                                                <p className="text-xs text-gray-500 mt-1">
+                                                    Play a beep this many seconds after starting the timer
+                                                </p>
+                                            </div>
+
+                                            <div>
+                                                <button
+                                                    onClick={playBeep}
+                                                    className="w-full px-4 py-2 bg-blue-500 hover:bg-blue-600 rounded-lg font-semibold transition-colors"
+                                                >
+                                                    Test Beep Sound
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                     {showTeamScoring && (
                         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
                             <div className={`${cardBgClass} rounded-lg p-6 max-w-4xl w-full shadow-2xl max-h-[90vh] overflow-y-auto`}>
