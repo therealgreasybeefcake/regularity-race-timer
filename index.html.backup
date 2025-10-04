@@ -13,13 +13,13 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="apple-touch-icon" href="/logo.png">
-    <script crossorigin src="lib/react.production.min.js"></script>
-    <script crossorigin src="lib/react-dom.production.min.js"></script>
-    <script src="lib/babel.min.js"></script>
-    <script src="lib/tailwind.min.js"></script>
-    <script src="lib/jspdf.umd.min.js"></script>
-    <script src="lib/jspdf.plugin.autotable.min.js"></script>
-    <script src="lib/chart.umd.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 </head>
 <body>
     <div id="root"></div>
@@ -167,14 +167,8 @@
             const [showSettings, setShowSettings] = useState(false);
             const [audioSettings, setAudioSettings] = useState(() => {
                 const saved = localStorage.getItem('audioSettings');
-                if (saved) {
-                    const parsed = JSON.parse(saved);
-                    // Ensure enabled property exists (default to true for backwards compatibility)
-                    if (parsed.enabled === undefined) parsed.enabled = true;
-                    return parsed;
-                }
+                if (saved) return JSON.parse(saved);
                 return {
-                    enabled: true,
                     beforeTargetTime: 10,
                     afterLapStart: 15
                 };
@@ -292,7 +286,7 @@
                         // Audio warning: X seconds after lap start
                         if (elapsed >= audioSettings.afterLapStart && !afterStartBeepPlayedRef.current) {
                             console.log('After start beep triggered at', elapsed, 'seconds');
-                            playBeep(true); // Double beep for after lap start
+                            playBeep();
                             afterStartBeepPlayedRef.current = true;
                         }
 
@@ -862,9 +856,7 @@
             };
 
             // Audio beep functionality
-            const playBeep = (doubleBeep = false) => {
-                if (!audioSettings.enabled) return; // Check if audio is enabled
-
+            const playBeep = () => {
                 const audioContext = new (window.AudioContext || window.webkitAudioContext)();
                 const oscillator = audioContext.createOscillator();
                 const gainNode = audioContext.createGain();
@@ -880,27 +872,6 @@
 
                 oscillator.start(audioContext.currentTime);
                 oscillator.stop(audioContext.currentTime + 0.2);
-
-                // Play second beep if doubleBeep is true
-                if (doubleBeep) {
-                    setTimeout(() => {
-                        const audioContext2 = new (window.AudioContext || window.webkitAudioContext)();
-                        const oscillator2 = audioContext2.createOscillator();
-                        const gainNode2 = audioContext2.createGain();
-
-                        oscillator2.connect(gainNode2);
-                        gainNode2.connect(audioContext2.destination);
-
-                        oscillator2.frequency.value = 800;
-                        oscillator2.type = 'sine';
-
-                        gainNode2.gain.setValueAtTime(0.3, audioContext2.currentTime);
-                        gainNode2.gain.exponentialRampToValueAtTime(0.01, audioContext2.currentTime + 0.2);
-
-                        oscillator2.start(audioContext2.currentTime);
-                        oscillator2.stop(audioContext2.currentTime + 0.2);
-                    }, 250);
-                }
             };
 
             // Helper function to calculate linear regression trend line
@@ -2555,27 +2526,6 @@
                                         <h3 className="text-lg font-semibold mb-4">Audio Warnings</h3>
 
                                         <div className="space-y-4">
-                                            <div className="flex items-center justify-between">
-                                                <label className="text-sm font-medium">
-                                                    Enable Audio Beeps
-                                                </label>
-                                                <button
-                                                    onClick={() => setAudioSettings({
-                                                        ...audioSettings,
-                                                        enabled: !audioSettings.enabled
-                                                    })}
-                                                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
-                                                        audioSettings.enabled ? 'bg-blue-600' : 'bg-gray-300'
-                                                    }`}
-                                                >
-                                                    <span
-                                                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                                                            audioSettings.enabled ? 'translate-x-6' : 'translate-x-1'
-                                                        }`}
-                                                    />
-                                                </button>
-                                            </div>
-
                                             <div>
                                                 <label className="block text-sm font-medium mb-2">
                                                     Beep before target time (seconds)
